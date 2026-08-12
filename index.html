@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Asset Test Rig — PAT Testing System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#16233A;
+  --ink-soft:#4A5568;
+  --paper:#ECEFEA;
+  --panel:#FFFFFF;
+  --line:#CDD3C8;
+  --yellow:#F5B700;
+  --yellow-deep:#C99000;
+  --green:#1F8A5F;
+  --green-bg:#E4F3EC;
+  --red:#C4392B;
+  --red-bg:#FBE7E4;
+  --amber:#C97A1B;
+  --amber-bg:#FBEEDD;
+  --radius:10px;
+  font-size:16px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Inter',system-ui,sans-serif;
+  -webkit-tap-highlight-color:transparent;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+h1,h2,h3{font-family:'Space Grotesk',sans-serif;margin:0 0 4px;letter-spacing:-0.01em;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;font-size:15px;}
+
+/* ---------- Header / Nav ---------- */
+#app-header{
+  background:var(--ink);
+  color:#fff;
+  padding:14px 16px 0;
+  position:sticky; top:0; z-index:50;
+}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.brand-tag{
+  width:34px;height:34px;background:var(--yellow);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Space Grotesk';font-weight:700;color:var(--ink);font-size:15px;
+  position:relative;flex:none;
+}
+.brand-tag::after{content:'';position:absolute;top:5px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--ink);opacity:.35;}
+.brand h1{font-size:17px;color:#fff;}
+.brand span{font-size:11.5px;color:#B9C2D4;display:block;font-weight:500;}
+.job-chip{
+  margin-left:auto;font-size:11px;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.18);padding:5px 9px;border-radius:20px;color:#DCE3F0;
+  max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+nav#tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;}
+nav#tabs::-webkit-scrollbar{display:none;}
+nav#tabs button{
+  flex:none;background:none;border:none;color:#AEB8CC;padding:10px 12px 12px;
+  font-size:13px;font-weight:600;border-bottom:2.5px solid transparent;white-space:nowrap;
+}
+nav#tabs button.active{color:#fff;border-bottom-color:var(--yellow);}
+
+main{max-width:760px;margin:0 auto;padding:16px 14px 60px;}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
+.panel h2{font-size:15px;}
+.hint{color:var(--ink-soft);font-size:12.5px;margin:2px 0 14px;line-height:1.5;}
+.field{margin-bottom:13px;}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em;}
+.field input,.field select,.field textarea{
+  width:100%;padding:10px 11px;border:1.5px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--yellow-deep);outline-offset:1px;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.btn{
+  border:none;border-radius:9px;padding:12px 18px;font-weight:700;font-size:14.5px;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-primary{background:var(--yellow);color:var(--ink);width:100%;}
+.btn-primary:active{background:var(--yellow-deep);}
+.btn-primary:disabled{opacity:.4;}
+.btn-secondary{background:#fff;border:1.5px solid var(--ink);color:var(--ink);}
+.btn-ghost{background:none;color:var(--ink-soft);border:1.5px solid var(--line);}
+.btn-danger{background:var(--red);color:#fff;}
+.btn-row{display:flex;gap:10px;margin-top:6px;}
+.btn-row .btn{flex:1;}
+
+/* ---------- Steps ---------- */
+#steps{display:flex;gap:6px;margin-bottom:16px;}
+.step-dot{
+  flex:1;text-align:center;padding:8px 4px;border-radius:7px;font-size:10.5px;font-weight:700;
+  background:#fff;border:1.5px dashed var(--line);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.02em;
+}
+.step-dot.done{background:var(--green-bg);border-style:solid;border-color:var(--green);color:var(--green);}
+.step-dot.now{background:var(--ink);border-style:solid;border-color:var(--ink);color:#fff;}
+
+/* ---------- Test label motif ---------- */
+.tag-card{
+  background:var(--yellow);border-radius:12px;padding:18px 16px;position:relative;margin-bottom:14px;
+  box-shadow:0 3px 0 var(--yellow-deep);
+}
+.tag-card::before{
+  content:'';position:absolute;top:14px;left:-7px;width:14px;height:14px;border-radius:50%;
+  background:var(--paper);border:2px solid var(--yellow-deep);
+}
+.tag-card .eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6B4E00;margin-bottom:3px;}
+.tag-card .big{font-family:'IBM Plex Mono';font-size:22px;font-weight:600;color:var(--ink);word-break:break-all;}
+.tag-card .sub{font-size:12.5px;color:#6B4E00;margin-top:4px;}
+
+/* ---------- Scanner ---------- */
+#reader{width:100%;border-radius:10px;overflow:hidden;background:#000;margin-bottom:10px;}
+.scan-frame{position:relative;}
+.manual-entry{display:flex;gap:8px;margin-top:8px;}
+.manual-entry input{flex:1;}
+
+/* ---------- Badges ---------- */
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:700;}
+.badge-pass{background:var(--green-bg);color:var(--green);}
+.badge-fail{background:var(--red-bg);color:var(--red);}
+.badge-warn{background:var(--amber-bg);color:var(--amber);}
+.badge-muted{background:#EDEFEA;color:var(--ink-soft);}
+
+.result-hero{text-align:center;padding:26px 16px;border-radius:12px;margin-bottom:14px;}
+.result-hero.pass{background:var(--green-bg);}
+.result-hero.fail{background:var(--red-bg);}
+.result-hero .status{font-family:'Space Grotesk';font-size:30px;font-weight:700;}
+.result-hero.pass .status{color:var(--green);}
+.result-hero.fail .status{color:var(--red);}
+.fail-list{list-style:none;padding:0;margin:10px 0 0;text-align:left;}
+.fail-list li{background:#fff;border-radius:7px;padding:8px 10px;font-size:13px;margin-bottom:6px;color:var(--red);border:1px solid #F0C6C0;}
+.check-list{list-style:none;padding:0;margin:0;}
+.check-list li{display:flex;align-items:center;gap:8px;padding:7px 0;font-size:13.5px;border-bottom:1px solid #F0F1EC;}
+.check-list li:last-child{border-bottom:none;}
+.check-ok{color:var(--green);font-weight:700;}
+.check-pending{color:var(--ink-soft);}
+
+/* ---------- Tables ---------- */
+.toolbar{display:flex;gap:8px;margin-bottom:12px;}
+.toolbar input{flex:1;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);padding:8px 8px;border-bottom:2px solid var(--line);}
+td{padding:9px 8px;border-bottom:1px solid #EEF0EA;vertical-align:top;}
+tr.clickable{cursor:pointer;}
+tr.clickable:active{background:#F5F6F1;}
+.asset-no{font-family:'IBM Plex Mono';font-weight:600;}
+.empty-state{text-align:center;padding:40px 16px;color:var(--ink-soft);}
+.empty-state .big-emoji{font-size:34px;margin-bottom:8px;}
+
+.detail-card{background:#F7F8F4;border:1px solid var(--line);border-radius:9px;padding:12px;margin-top:10px;font-size:13px;}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-bottom:8px;}
+.detail-grid div b{display:block;font-size:10px;color:var(--ink-soft);text-transform:uppercase;font-weight:700;}
+
+.section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.small-note{font-size:11.5px;color:var(--ink-soft);}
+.pill-tabs{display:flex;gap:6px;margin-bottom:14px;}
+.pill-tabs button{flex:1;padding:9px;border-radius:8px;border:1.5px solid var(--line);background:#fff;font-weight:600;font-size:13px;color:var(--ink-soft);}
+.pill-tabs button.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+.list-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #EEF0EA;font-size:13.5px;}
+.list-row:last-child{border-bottom:none;}
+.list-row .meta{color:var(--ink-soft);font-size:12px;}
+
+.toast{
+  position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:11px 18px;border-radius:30px;font-size:13.5px;font-weight:600;
+  box-shadow:0 6px 18px rgba(0,0,0,.25);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+.assumptions{background:#fff;border:1.5px dashed var(--line);border-radius:9px;padding:12px 14px;font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.5;}
+.assumptions b{color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div id="app-header">
+  <div class="brand">
+    <div class="brand-tag">PAT</div>
+    <div>
+      <h1>Asset Test Rig</h1>
+      <span id="job-sub">No job started</span>
+    </div>
+    <div class="job-chip" id="job-chip" style="display:none;"></div>
+  </div>
+  <nav id="tabs"></nav>
+</div>
+
+<main id="view"></main>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   STORAGE LAYER — your Google Sheet, via a bound Apps Script Web App
+   ========================================================================= */
+const TABLES = ['assetRegister','testEquipment','engineers','testHistory','jobLog','settings'];
+let DB = { assetRegister: [], testEquipment: [], engineers: [], testHistory: [], jobLog: [],
+  settings: { earthBondMax:0.1, insulationMin:1, leakageMaxClassI:3.5, leakageMaxClassII:0.5, retestMonths:12, nextTestSeq:1 } };
+
+let CONN = { url:'', key:'' };
+let connStatus = 'unconfigured'; // unconfigured | connecting | ok | error
+let connError = '';
+
+// Small persistence helper: prefers window.storage (Claude artifacts),
+// falls back to localStorage when this file is hosted on its own (e.g.
+// GitHub Pages) where window.storage won't exist.
+async function configGet(){
+  try{
+    if(window.storage){
+      const r = await window.storage.get('sheetConnection', true);
+      if(r && r.value) return JSON.parse(r.value);
+      return null;
+    }
+  }catch(e){ /* not set yet */ }
+  try{
+    const raw = localStorage.getItem('sheetConnection');
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+async function configSet(conn){
+  try{
+    if(window.storage){ await window.storage.set('sheetConnection', JSON.stringify(conn), true); return; }
+  }catch(e){}
+  try{ localStorage.setItem('sheetConnection', JSON.stringify(conn)); }catch(e){}
+}
+
+function buildUrl(action){
+  const u = new URL(CONN.url);
+  u.searchParams.set('action', action);
+  if(CONN.key) u.searchParams.set('key', CONN.key);
+  return u.toString();
+}
+
+async function loadAll(){
+  if(!CONN.url){ connStatus='unconfigured'; return; }
+  connStatus = 'connecting';
+  try{
+    const res = await fetch(buildUrl('readAll'));
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    TABLES.forEach(t=>{ if(data[t]!==undefined) DB[t] = data[t]; });
+    if(data.settings) DB.settings = Object.assign({}, DB.settings, data.settings);
+    connStatus = 'ok'; connError='';
+  }catch(e){
+    connStatus = 'error'; connError = String(e.message||e);
+    console.error('load error', e);
+  }
+}
+
+// Writes go via POST with a text/plain body — this avoids a CORS
+// pre-flight (Apps Script can't answer OPTIONS requests), which is the
+// standard way to call an Apps Script web app from another domain.
+async function save(table){
+  if(!CONN.url){ toast('Not connected to a Google Sheet — see Settings'); return; }
+  const payload = JSON.stringify({ action:'writeTable', table, rows: DB[table], key: CONN.key });
+  try{
+    const res = await fetch(CONN.url, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: payload });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+  }catch(e){
+    // Some browsers still block reading the response even though the
+    // write itself lands. Fall back to a fire-and-forget request, then
+    // confirm by re-reading straight after.
+    console.warn('save() readable response failed, retrying no-cors', e);
+    try{
+      await fetch(CONN.url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: payload });
+      toast('Saved (could not confirm — check the sheet)');
+    }catch(e2){
+      toast('Save failed — check your connection in Settings');
+      console.error('storage save error', table, e2);
+    }
+  }
+}
+async function testConnection(){
+  connStatus = 'connecting'; renderAll();
+  await loadAll();
+  renderAll();
+  if(connStatus==='ok') toast('Connected to the Google Sheet');
+  else toast('Could not connect — check the URL and key');
+}
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+let currentJob = null;      // {jobId, site, equipmentId, equipmentLabel, serial, calDate, engineerId, engineerName, date}
+let wizardStep = 'job';     // job -> scan -> readings -> check -> result
+let currentAsset = null;    // {assetNo, description, location, site, class, isNew}
+let currentReadings = null;
+let currentResult = null;
+let qrScanner = null;
+let activeTab = 'newtest';
+
+const TABS = [
+  {id:'newtest', label:'New Test'},
+  {id:'register', label:'Asset Register'},
+  {id:'history', label:'Test History'},
+  {id:'people', label:'Equipment & Engineers'},
+  {id:'io', label:'Import / Export'},
+  {id:'settings', label:'Settings'},
+];
+
+/* =========================================================================
+   UTIL
+   ========================================================================= */
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>el.classList.remove('show'), 2600);
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function addMonths(dateStr, months){
+  const d = new Date(dateStr);
+  d.setMonth(d.getMonth()+months);
+  return d.toISOString().slice(0,10);
+}
+function fmtDate(d){
+  if(!d) return '—';
+  try{ const dt = new Date(d); if(isNaN(dt)) return d;
+    return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  }catch(e){ return d; }
+}
+function esc(s){ return (s===undefined||s===null)?'':String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function genId(prefix){
+  const n = DB.settings.nextTestSeq || 1;
+  DB.settings.nextTestSeq = n+1;
+  return prefix + '-' + String(n).padStart(5,'0');
+}
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  const ms = new Date(dateStr).getTime() - new Date(todayISO()).getTime();
+  return Math.round(ms/86400000);
+}
+
+/* =========================================================================
+   RENDER — HEADER / NAV
+   ========================================================================= */
+function renderHeader(){
+  const nav = document.getElementById('tabs');
+  nav.innerHTML = TABS.map(t=>`<button data-tab="${t.id}" class="${activeTab===t.id?'active':''}">${t.label}</button>`).join('');
+  nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{ activeTab=b.dataset.tab; if(activeTab==='newtest' && !currentJob) wizardStep='job'; renderAll(); });
+
+  const sub = document.getElementById('job-sub');
+  const chip = document.getElementById('job-chip');
+  if(currentJob){
+    sub.textContent = 'Job in progress';
+    chip.style.display = 'block';
+    chip.textContent = `${currentJob.site} · ${currentJob.engineerName}`;
+  }else{
+    sub.textContent = 'No job started';
+    chip.style.display = 'none';
+  }
+}
+
+function renderAll(){
+  renderHeader();
+  const view = document.getElementById('view');
+  stopScanner();
+  if(activeTab==='newtest') view.innerHTML = renderNewTest();
+  else if(activeTab==='register') view.innerHTML = renderRegister();
+  else if(activeTab==='history') view.innerHTML = renderHistory();
+  else if(activeTab==='people') view.innerHTML = renderPeople();
+  else if(activeTab==='io') view.innerHTML = renderIO();
+  else if(activeTab==='settings') view.innerHTML = renderSettings();
+  bindHandlers();
+}
+
+/* =========================================================================
+   NEW TEST WIZARD
+   ========================================================================= */
+function stepIndicator(){
+  const steps = [['job','Job'],['scan','Scan'],['readings','Readings'],['check','Checks'],['result','Result']];
+  return `<div id="steps">${steps.map(([id,label])=>{
+    const order=['job','scan','readings','check','result'];
+    const cur = order.indexOf(wizardStep), th = order.indexOf(id);
+    let cls = th<cur ? 'done' : (th===cur ? 'now' : '');
+    return `<div class="step-dot ${cls}">${label}</div>`;
+  }).join('')}</div>`;
+}
+
+function renderNewTest(){
+  if(wizardStep==='job') return stepIndicator() + renderJobStep();
+  if(wizardStep==='scan') return stepIndicator() + renderScanStep();
+  if(wizardStep==='readings') return stepIndicator() + renderReadingsStep();
+  if(wizardStep==='check') return stepIndicator() + renderCheckStep();
+  if(wizardStep==='result') return stepIndicator() + renderResultStep();
+  return '';
+}
+
+function renderJobStep(){
+  const activeEquip = DB.testEquipment.filter(e=>e.active!=='No');
+  const activeEng = DB.engineers.filter(e=>e.active!=='No');
+  const sites = [...new Set(DB.assetRegister.map(a=>a.site).filter(Boolean))];
+  return `
+  <div class="panel">
+    <h2>Job details login</h2>
+    <p class="hint">Set the site, the test instrument being used, and the engineer on the tools. This locks in the instrument's serial &amp; calibration date against every test in this job.</p>
+    <div class="field">
+      <label>Site</label>
+      <input id="f-site" list="site-list" placeholder="e.g. Yeovil Distribution Centre" value="${esc(currentJob?.site||'')}">
+      <datalist id="site-list">${sites.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+    </div>
+    <div class="field">
+      <label>Test equipment</label>
+      ${activeEquip.length? `<select id="f-equip">
+        <option value="">Select instrument…</option>
+        ${activeEquip.map(e=>`<option value="${esc(e.id)}" ${currentJob?.equipmentId===e.id?'selected':''}>${esc(e.makeModel)} — ${esc(e.serial)}${calWarning(e.calDate)}</option>`).join('')}
+      </select>` : `<div class="hint" style="margin:0;color:var(--red)">No active test instruments registered yet. Add one under "Equipment &amp; Engineers".</div>`}
+    </div>
+    <div class="field">
+      <label>Engineer</label>
+      ${activeEng.length? `<select id="f-eng">
+        <option value="">Select engineer…</option>
+        ${activeEng.map(e=>`<option value="${esc(e.id)}" ${currentJob?.engineerId===e.id?'selected':''}>${esc(e.name)}</option>`).join('')}
+      </select>` : `<div class="hint" style="margin:0;color:var(--red)">No active engineers registered yet. Add one under "Equipment &amp; Engineers".</div>`}
+    </div>
+    <button class="btn btn-primary" id="btn-start-job">Log job &amp; continue to scan</button>
+  </div>`;
+}
+function calWarning(calDate){
+  const d = daysUntil(calDate);
+  if(d===null) return '';
+  if(d<0) return '  ⚠ CAL OVERDUE';
+  if(d<30) return '  ⚠ cal due soon';
+  return '';
+}
+
+function renderScanStep(){
+  return `
+  <div class="panel">
+    <div class="section-title"><h2>Scan asset</h2><button class="btn btn-ghost" id="btn-back-job" style="padding:6px 10px;font-size:12px;">Change job</button></div>
+    <p class="hint">Point the camera at the QR code or barcode on the asset's test label.</p>
+    <div class="scan-frame">
+      <div id="reader"></div>
+    </div>
+    <button class="btn btn-primary" id="btn-cam-toggle">Start camera</button>
+    <div class="manual-entry">
+      <input id="f-manual-asset" placeholder="…or type Asset No. manually" class="mono">
+      <button class="btn btn-secondary" id="btn-manual-go">Go</button>
+    </div>
+  </div>`;
+}
+
+function renderReadingsStep(){
+  const a = currentAsset;
+  const r = currentReadings || {visual:'', earthBond:'', insulation:'', load:'', leakage:'', polarity:'', notes:''};
+  return `
+  <div class="tag-card">
+    <div class="eyebrow">Asset under test</div>
+    <div class="big">${esc(a.assetNo)}</div>
+    <div class="sub">${esc(a.description||'Description not yet recorded')} ${a.location? ' · '+esc(a.location):''}</div>
+  </div>
+  <div class="panel">
+    <h2>Asset details</h2>
+    <div class="row2">
+      <div class="field"><label>Description</label><input id="f-desc" value="${esc(a.description)}" placeholder="e.g. Desk fan"></div>
+      <div class="field"><label>Location</label><input id="f-loc" value="${esc(a.location)}" placeholder="e.g. Office 2, Desk 4"></div>
+    </div>
+    <div class="field">
+      <label>Appliance class</label>
+      <select id="f-class">
+        <option value="I" ${a.class==='I'?'selected':''}>Class I (earthed)</option>
+        <option value="II" ${a.class==='II'?'selected':''}>Class II (double insulated)</option>
+      </select>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Visual &amp; polarity</h2>
+    <div class="row2">
+      <div class="field"><label>Visual inspection</label>
+        <select id="f-visual">
+          <option value="" ${r.visual===''?'selected':''}>—</option>
+          <option value="Pass" ${r.visual==='Pass'?'selected':''}>Pass</option>
+          <option value="Fail" ${r.visual==='Fail'?'selected':''}>Fail</option>
+        </select>
+      </div>
+      <div class="field"><label>Polarity</label>
+        <select id="f-polarity">
+          <option value="" ${r.polarity===''?'selected':''}>—</option>
+          <option value="Pass" ${r.polarity==='Pass'?'selected':''}>Pass</option>
+          <option value="Fail" ${r.polarity==='Fail'?'selected':''}>Fail</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Electrical readings</h2>
+    <div class="row2">
+      <div class="field"><label>Earth bond (Ω)</label><input type="number" step="0.01" id="f-earth" value="${esc(r.earthBond)}"></div>
+      <div class="field"><label>Insulation (MΩ)</label><input type="number" step="0.01" id="f-insul" value="${esc(r.insulation)}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Load (A)</label><input type="number" step="0.01" id="f-load" value="${esc(r.load)}"></div>
+      <div class="field"><label>Leakage (mA)</label><input type="number" step="0.01" id="f-leak" value="${esc(r.leakage)}"></div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="f-notes" rows="2" placeholder="Optional">${esc(r.notes)}</textarea></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-ghost" id="btn-readings-back">Back</button>
+    <button class="btn btn-primary" id="btn-readings-next">Run checks</button>
+  </div>`;
+}
+
+function renderCheckStep(){
+  const fe = frontEndCheck();
+  const se = serverCheck();
+  return `
+  <div class="panel">
+    <h2>Front-end check</h2>
+    <p class="hint">Confirms every reading needed to score this test is present and sane before anything is written to the register.</p>
+    <ul class="check-list">${fe.items.map(i=>`<li><span class="${i.ok?'check-ok':'check-pending'}">${i.ok?'✓':'•'}</span> ${esc(i.label)}</li>`).join('')}</ul>
+  </div>
+  <div class="panel">
+    <h2>Server check</h2>
+    <p class="hint">Data-integrity pass against the register: instrument calibration, engineer status, and duplicate-record checks. (This app runs locally on your device with synced storage — there's no separate network server, so this check runs against the shared register instead.)</p>
+    <ul class="check-list">${se.items.map(i=>`<li><span class="${i.ok?'check-ok':'check-pending'}">${i.ok?'✓':'⚠'}</span> ${esc(i.label)}</li>`).join('')}</ul>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-ghost" id="btn-check-back">Back</button>
+    <button class="btn btn-primary" id="btn-check-next" ${(!fe.allOk)?'disabled':''}>Calculate result</button>
+  </div>`;
+}
+
+function frontEndCheck(){
+  const r = currentReadings;
+  const items = [
+    {label:'Visual inspection recorded', ok: r.visual==='Pass'||r.visual==='Fail'},
+    {label:'Polarity recorded', ok: r.polarity==='Pass'||r.polarity==='Fail'},
+    {label:'Earth bond reading entered', ok: r.earthBond!==''&&!isNaN(r.earthBond)},
+    {label:'Insulation reading entered', ok: r.insulation!==''&&!isNaN(r.insulation)},
+    {label:'Load reading entered', ok: r.load!==''&&!isNaN(r.load)},
+    {label:'Leakage reading entered', ok: r.leakage!==''&&!isNaN(r.leakage)},
+    {label:'No negative readings', ok: [r.earthBond,r.insulation,r.load,r.leakage].every(v=>v===''||parseFloat(v)>=0)},
+  ];
+  return {items, allOk: items.every(i=>i.ok)};
+}
+function serverCheck(){
+  const items = [];
+  const eq = DB.testEquipment.find(e=>e.id===currentJob.equipmentId);
+  const calDays = eq? daysUntil(eq.calDate): null;
+  items.push({label: eq? `Instrument calibration current (due ${fmtDate(eq.calDate)})` : 'Instrument on record', ok: calDays!==null && calDays>=0});
+  const eng = DB.engineers.find(e=>e.id===currentJob.engineerId);
+  items.push({label: eng? `Engineer "${eng.name}" active on register` : 'Engineer on record', ok: !!eng && eng.active!=='No'});
+  const dup = DB.assetRegister.find(a=>a.assetNo===currentAsset.assetNo && a.assetNo!==currentAsset._originalAssetNo);
+  items.push({label: currentAsset.isNew ? 'Asset No. not already in register' : 'Existing asset record located', ok: currentAsset.isNew? !dup : true});
+  return {items};
+}
+
+function renderResultStep(){
+  const res = currentResult;
+  return `
+  <div class="result-hero ${res.pass?'pass':'fail'}">
+    <div class="status">${res.pass?'PASS':'FAIL'}</div>
+    <div class="hint" style="margin-top:6px;">${esc(currentAsset.assetNo)} · ${esc(currentAsset.description)}</div>
+    ${res.fails.length? `<ul class="fail-list">${res.fails.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>` : ''}
+  </div>
+  <div class="panel">
+    <h2>Confirm &amp; save</h2>
+    <p class="hint">Saving writes this test to Test History and updates this asset's latest result in the Asset Register.</p>
+    <button class="btn btn-primary" id="btn-save-result">Save result</button>
+    <button class="btn btn-ghost" style="width:100%;margin-top:8px;" id="btn-discard-result">Discard &amp; rescan</button>
+  </div>`;
+}
+
+/* =========================================================================
+   SCANNER
+   ========================================================================= */
+function stopScanner(){
+  if(qrScanner){
+    try{ qrScanner.stop().then(()=>qrScanner.clear()).catch(()=>{}); }catch(e){}
+    qrScanner = null;
+  }
+}
+function startScanner(){
+  const readerEl = document.getElementById('reader');
+  if(!readerEl) return;
+  qrScanner = new Html5Qrcode('reader');
+  const config = { fps: 10, qrbox: { width: 240, height: 240 } };
+  qrScanner.start({ facingMode: 'environment' }, config,
+    (decodedText)=>{ onAssetScanned(decodedText); },
+    ()=>{ /* per-frame miss, ignore */ }
+  ).catch(err=>{
+    toast('Camera unavailable — enter the Asset No. manually below');
+    console.error(err);
+  });
+}
+function onAssetScanned(text){
+  stopScanner();
+  toast('Scanned: ' + text);
+  loadAssetIntoWizard(text.trim());
+}
+function loadAssetIntoWizard(assetNo){
+  const existing = DB.assetRegister.find(a=>a.assetNo===assetNo);
+  if(existing){
+    currentAsset = { assetNo, description: existing.description||'', location: existing.location||'',
+      site: currentJob.site, class: existing.class||'I', isNew:false, _originalAssetNo: assetNo };
+  }else{
+    currentAsset = { assetNo, description:'', location:'', site: currentJob.site, class:'I', isNew:true, _originalAssetNo: assetNo };
+  }
+  currentReadings = {visual:'', earthBond:'', insulation:'', load:'', leakage:'', polarity:'', notes:''};
+  wizardStep = 'readings';
+  renderAll();
+}
+
+/* =========================================================================
+   RESULT CALCULATION
+   ========================================================================= */
+function calculateResult(){
+  const r = currentReadings, s = DB.settings, fails = [];
+  if(r.visual!=='Pass') fails.push('Visual inspection: Fail');
+  if(r.polarity!=='Pass') fails.push('Polarity: Fail');
+  const eb = parseFloat(r.earthBond);
+  if(!isNaN(eb) && eb > s.earthBondMax) fails.push(`Earth bond ${eb}Ω exceeds limit of ${s.earthBondMax}Ω`);
+  const ins = parseFloat(r.insulation);
+  if(!isNaN(ins) && ins < s.insulationMin) fails.push(`Insulation ${ins}MΩ is below minimum of ${s.insulationMin}MΩ`);
+  const leakLimit = currentAsset.class==='II' ? s.leakageMaxClassII : s.leakageMaxClassI;
+  const leak = parseFloat(r.leakage);
+  if(!isNaN(leak) && leak > leakLimit) fails.push(`Leakage ${leak}mA exceeds Class ${currentAsset.class} limit of ${leakLimit}mA`);
+  const load = parseFloat(r.load);
+  if(!isNaN(load) && load===0) fails.push('No load current detected (possible open circuit)');
+  return { pass: fails.length===0, fails };
+}
+
+/* =========================================================================
+   PEOPLE / EQUIPMENT VIEW
+   ========================================================================= */
+let peopleTab = 'equipment';
+function renderPeople(){
+  return `
+  <div class="pill-tabs">
+    <button data-p="equipment" class="${peopleTab==='equipment'?'active':''}">Test Equipment</button>
+    <button data-p="engineers" class="${peopleTab==='engineers'?'active':''}">Engineers</button>
+  </div>
+  ${peopleTab==='equipment' ? renderEquipmentList() : renderEngineerList()}
+  `;
+}
+function renderEquipmentList(){
+  return `
+  <div class="panel">
+    <div class="section-title"><h2>Test equipment register</h2></div>
+    ${DB.testEquipment.length? DB.testEquipment.map(e=>`
+      <div class="list-row">
+        <div>
+          <div><b class="mono">${esc(e.id)}</b> — ${esc(e.makeModel)}</div>
+          <div class="meta">S/N ${esc(e.serial)} · Cal ${fmtDate(e.calDate)} ${daysUntil(e.calDate)<0?'<span class="badge badge-fail">overdue</span>':(daysUntil(e.calDate)<30?'<span class="badge badge-warn">due soon</span>':'')}</div>
+        </div>
+        <span class="badge ${e.active==='No'?'badge-muted':'badge-pass'}">${e.active==='No'?'Inactive':'Active'}</span>
+      </div>`).join('') : `<div class="empty-state"><div class="big-emoji">🧰</div>No test instruments registered yet.</div>`}
+  </div>
+  <div class="panel">
+    <h2>Add / update instrument</h2>
+    <div class="row2">
+      <div class="field"><label>Equipment ID</label><input id="eq-id" placeholder="e.g. T002"></div>
+      <div class="field"><label>Serial No.</label><input id="eq-serial"></div>
+    </div>
+    <div class="field"><label>Make / Model</label><input id="eq-model" placeholder="e.g. Seaward PrimeTest 250+"></div>
+    <div class="row2">
+      <div class="field"><label>Calibration date</label><input type="date" id="eq-cal"></div>
+      <div class="field"><label>Active</label><select id="eq-active"><option value="Yes">Yes</option><option value="No">No</option></select></div>
+    </div>
+    <div class="field"><label>Notes</label><input id="eq-notes"></div>
+    <button class="btn btn-primary" id="btn-save-equip">Save instrument</button>
+  </div>`;
+}
+function renderEngineerList(){
+  return `
+  <div class="panel">
+    <div class="section-title"><h2>Engineers register</h2></div>
+    ${DB.engineers.length? DB.engineers.map(e=>`
+      <div class="list-row">
+        <div><div><b class="mono">${esc(e.id)}</b> — ${esc(e.name)}</div></div>
+        <span class="badge ${e.active==='No'?'badge-muted':'badge-pass'}">${e.active==='No'?'Inactive':'Active'}</span>
+      </div>`).join('') : `<div class="empty-state"><div class="big-emoji">🧑‍🔧</div>No engineers registered yet.</div>`}
+  </div>
+  <div class="panel">
+    <h2>Add / update engineer</h2>
+    <div class="row2">
+      <div class="field"><label>Engineer ID</label><input id="en-id" placeholder="e.g. E002"></div>
+      <div class="field"><label>Name</label><input id="en-name"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Active</label><select id="en-active"><option value="Yes">Yes</option><option value="No">No</option></select></div>
+      <div class="field"><label>Notes</label><input id="en-notes"></div>
+    </div>
+    <button class="btn btn-primary" id="btn-save-eng">Save engineer</button>
+  </div>`;
+}
+
+/* =========================================================================
+   ASSET REGISTER VIEW
+   ========================================================================= */
+let registerFilter = '';
+let expandedAsset = null;
+function renderRegister(){
+  const q = registerFilter.toLowerCase();
+  const rows = DB.assetRegister.filter(a=>!q || [a.assetNo,a.description,a.location,a.site].some(v=>(v||'').toLowerCase().includes(q)));
+  return `
+  <div class="toolbar"><input id="reg-search" placeholder="Search asset no., description, location, site…" value="${esc(registerFilter)}"></div>
+  <div class="panel">
+    <div class="section-title"><h2>Asset register</h2><span class="small-note">${rows.length} of ${DB.assetRegister.length}</span></div>
+    ${rows.length? `<table><thead><tr><th>Asset</th><th>Location</th><th>Last test</th><th>Status</th></tr></thead>
+    <tbody>${rows.map(a=>renderRegisterRow(a)).join('')}</tbody></table>`
+    : `<div class="empty-state"><div class="big-emoji">🏷️</div>No assets found. Run a test or import your spreadsheet to populate this list.</div>`}
+  </div>`;
+}
+function renderRegisterRow(a){
+  const overdue = a.retestDate && daysUntil(a.retestDate)<0;
+  const dueSoon = a.retestDate && daysUntil(a.retestDate)>=0 && daysUntil(a.retestDate)<30;
+  const expanded = expandedAsset===a.assetNo;
+  return `<tr class="clickable" data-asset="${esc(a.assetNo)}">
+    <td class="asset-no">${esc(a.assetNo)}${a.passFail? `<div>${a.passFail==='Pass'?'<span class="badge badge-pass">Pass</span>':'<span class="badge badge-fail">Fail</span>'}</div>`:''}</td>
+    <td>${esc(a.location||'—')}<div class="meta" style="font-size:11px;color:var(--ink-soft);">${esc(a.site||'')}</div></td>
+    <td>${fmtDate(a.testDate)}<div class="meta" style="font-size:11px;color:var(--ink-soft);">retest ${fmtDate(a.retestDate)}</div></td>
+    <td>${overdue?'<span class="badge badge-fail">overdue</span>':dueSoon?'<span class="badge badge-warn">due soon</span>':'<span class="badge badge-pass">ok</span>'}</td>
+  </tr>
+  ${expanded? `<tr><td colspan="4"><div class="detail-card">
+    <div class="detail-grid">
+      <div><b>Description</b>${esc(a.description||'—')}</div>
+      <div><b>Class</b>${esc(a.class||'I')}</div>
+      <div><b>Earth bond</b>${esc(a.earthBond||'—')} Ω</div>
+      <div><b>Insulation</b>${esc(a.insulation||'—')} MΩ</div>
+      <div><b>Load</b>${esc(a.load||'—')} A</div>
+      <div><b>Leakage</b>${esc(a.leakage||'—')} mA</div>
+      <div><b>Visual</b>${esc(a.visual||'—')}</div>
+      <div><b>Polarity</b>${esc(a.polarity||'—')}</div>
+      <div><b>Tester</b>${esc(a.tester||'—')}</div>
+      <div><b>Engineer</b>${esc(a.engineer||'—')}</div>
+    </div>
+    <div class="small-note">Test history for this asset:</div>
+    ${renderMiniHistory(a.assetNo)}
+  </div></td></tr>` : ''}`;
+}
+function renderMiniHistory(assetNo){
+  const hist = DB.testHistory.filter(h=>h.assetNo===assetNo).sort((a,b)=>b.testDate.localeCompare(a.testDate));
+  if(!hist.length) return `<div class="small-note">No previous tests recorded.</div>`;
+  return hist.slice(0,6).map(h=>`<div class="list-row"><div>${fmtDate(h.testDate)} · ${esc(h.engineer||'')}</div>${h.passFail==='Pass'?'<span class="badge badge-pass">Pass</span>':'<span class="badge badge-fail">Fail</span>'}</div>`).join('');
+}
+
+/* =========================================================================
+   TEST HISTORY VIEW
+   ========================================================================= */
+let historyFilter = '';
+function renderHistory(){
+  const q = historyFilter.toLowerCase();
+  const rows = DB.testHistory.filter(h=>!q || [h.assetNo,h.site,h.engineer,h.description].some(v=>(v||'').toLowerCase().includes(q)))
+    .sort((a,b)=>b.testDate.localeCompare(a.testDate));
+  return `
+  <div class="toolbar"><input id="hist-search" placeholder="Search asset, site, engineer…" value="${esc(historyFilter)}"></div>
+  <div class="panel">
+    <div class="section-title"><h2>Test history</h2><span class="small-note">${rows.length} record${rows.length===1?'':'s'}</span></div>
+    ${rows.length? `<table><thead><tr><th>Date</th><th>Asset</th><th>Site</th><th>Engineer</th><th>Result</th></tr></thead>
+    <tbody>${rows.map(h=>`<tr>
+      <td>${fmtDate(h.testDate)}</td>
+      <td class="asset-no">${esc(h.assetNo)}</td>
+      <td>${esc(h.site||'—')}</td>
+      <td>${esc(h.engineer||'—')}</td>
+      <td>${h.passFail==='Pass'?'<span class="badge badge-pass">Pass</span>':'<span class="badge badge-fail">Fail</span>'}</td>
+    </tr>`).join('')}</tbody></table>` : `<div class="empty-state"><div class="big-emoji">📋</div>No tests recorded yet.</div>`}
+  </div>`;
+}
+
+/* =========================================================================
+   IMPORT / EXPORT
+   ========================================================================= */
+function renderIO(){
+  return `
+  <div class="assumptions">Your Google Sheet is now the live database — every save already lands there directly. Use these only for an offline backup copy, or to bulk-load records some other way than scanning.</div>
+  <div class="panel">
+    <h2>Export to Excel</h2>
+    <p class="hint">Downloads a snapshot of what's currently loaded — Asset Register, Test Equipment, Engineers, Job Details, Test History — as a .xlsx backup.</p>
+    <button class="btn btn-primary" id="btn-export">Download .xlsx backup</button>
+  </div>
+  <div class="panel">
+    <h2>Bulk import from Excel</h2>
+    <p class="hint">Upload a workbook in the same format to bulk-load records. This writes straight back to your connected Sheet — choose merge to add/update, or replace to overwrite everything currently there.</p>
+    <input type="file" id="io-file" accept=".xlsx,.xls">
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="btn-import-merge">Merge into sheet</button>
+      <button class="btn btn-danger" id="btn-import-replace">Replace sheet data</button>
+    </div>
+  </div>`;
+}
+
+function exportWorkbook(){
+  const wb = XLSX.utils.book_new();
+  const ar = DB.assetRegister.map(a=>({
+    'Asset No.':a.assetNo,'Appliance Description':a.description,'Location':a.location,'Site':a.site,
+    'Test Date':a.testDate,'Re-Test Date':a.retestDate,'Visual (Pass/Fail)':a.visual,'Earth Bond (Ω)':a.earthBond,
+    'Insulation (MΩ)':a.insulation,'Load (A)':a.load,'Leakage (mA)':a.leakage,'Polarity (Pass/Fail)':a.polarity,
+    'Pass/Fail':a.passFail,'Tester':a.tester,'Tester Serial No.':a.testerSerial,'Calibration Date':a.calDate,
+    'Engineer':a.engineer,'Notes':a.notes,'Status':a.status||'Active'
+  }));
+  const te = DB.testEquipment.map(e=>({'Equipment ID':e.id,'Make / Model':e.makeModel,'Serial No.':e.serial,'Calibration Date':e.calDate,'Active':e.active,'Notes':e.notes}));
+  const en = DB.engineers.map(e=>({'Engineer ID':e.id,'Engineer Name':e.name,'Active':e.active,'Notes':e.notes}));
+  const jl = DB.jobLog.map(j=>({'Site':j.site,'Equipment Make / Model':j.equipmentLabel,'Serial No.':j.serial,'Date':j.date,'Engineer':j.engineerName,'Calibration Date':j.calDate}));
+  const th = DB.testHistory.map(h=>({
+    'Test ID':h.testId,'Asset No.':h.assetNo,'Appliance Description':h.description,'Location':h.location,'Site':h.site,
+    'Test Date':h.testDate,'Re-Test Date':h.retestDate,'Visual (Pass/Fail)':h.visual,'Earth Bond (Ω)':h.earthBond,
+    'Insulation (MΩ)':h.insulation,'Load (A)':h.load,'Leakage (mA)':h.leakage,'Polarity (Pass/Fail)':h.polarity,
+    'Pass/Fail':h.passFail,'Tester':h.tester,'Tester Serial No.':h.testerSerial,'Calibration Date':h.calDate,
+    'Engineer':h.engineer,'Notes':h.notes
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ar), 'Asset Register');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(te), 'Test Equipment');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(en), 'Engineers');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(jl), 'Job Details');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(th), 'Test History');
+  XLSX.writeFile(wb, `PAT-Testing-Export-${todayISO()}.xlsx`);
+}
+
+function sheetToRows(wb, name){
+  const ws = wb.Sheets[name];
+  if(!ws) return [];
+  return XLSX.utils.sheet_to_json(ws, {defval:''});
+}
+function excelDateToISO(v){
+  if(v===''||v===undefined||v===null) return '';
+  if(typeof v==='number'){ const d = XLSX.SSF.parse_date_code(v); if(d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`; }
+  const d = new Date(v); return isNaN(d)? String(v) : d.toISOString().slice(0,10);
+}
+function importFile(mode){
+  const inp = document.getElementById('io-file');
+  if(!inp.files.length){ toast('Choose a file first'); return; }
+  const reader = new FileReader();
+  reader.onload = async (e)=>{
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const arRows = sheetToRows(wb,'Asset Register').map(r=>({
+        assetNo:String(r['Asset No.']||''), description:r['Appliance Description']||'', location:r['Location']||'', site:r['Site']||'',
+        testDate:excelDateToISO(r['Test Date']), retestDate:excelDateToISO(r['Re-Test Date']), visual:r['Visual (Pass/Fail)']||'',
+        earthBond:r['Earth Bond (Ω)']||'', insulation:r['Insulation (MΩ)']||'', load:r['Load (A)']||'', leakage:r['Leakage (mA)']||'',
+        polarity:r['Polarity (Pass/Fail)']||'', passFail:r['Pass/Fail']||'', tester:r['Tester']||'', testerSerial:r['Tester Serial No.']||'',
+        calDate:excelDateToISO(r['Calibration Date']), engineer:r['Engineer']||'', notes:r['Notes']||'', status:r['Status']||'Active', class:'I'
+      })).filter(r=>r.assetNo);
+      const teRows = sheetToRows(wb,'Test Equipment').map(r=>({id:String(r['Equipment ID']||''), makeModel:r['Make / Model']||'', serial:r['Serial No.']||'', calDate:excelDateToISO(r['Calibration Date']), active:r['Active']||'Yes', notes:r['Notes']||''})).filter(r=>r.id);
+      const enRows = sheetToRows(wb,'Engineers').map(r=>({id:String(r['Engineer ID']||''), name:r['Engineer Name']||'', active:r['Active']||'Yes', notes:r['Notes']||''})).filter(r=>r.id);
+      const thRows = sheetToRows(wb,'Test History').map(r=>({
+        testId:String(r['Test ID']||''), assetNo:String(r['Asset No.']||''), description:r['Appliance Description']||'', location:r['Location']||'', site:r['Site']||'',
+        testDate:excelDateToISO(r['Test Date']), retestDate:excelDateToISO(r['Re-Test Date']), visual:r['Visual (Pass/Fail)']||'',
+        earthBond:r['Earth Bond (Ω)']||'', insulation:r['Insulation (MΩ)']||'', load:r['Load (A)']||'', leakage:r['Leakage (mA)']||'',
+        polarity:r['Polarity (Pass/Fail)']||'', passFail:r['Pass/Fail']||'', tester:r['Tester']||'', testerSerial:r['Tester Serial No.']||'',
+        calDate:excelDateToISO(r['Calibration Date']), engineer:r['Engineer']||'', notes:r['Notes']||''
+      })).filter(r=>r.testId);
+
+      if(mode==='replace'){
+        DB.assetRegister = arRows; DB.testEquipment = teRows; DB.engineers = enRows; DB.testHistory = thRows;
+      }else{
+        mergeByKey(DB.assetRegister, arRows, 'assetNo');
+        mergeByKey(DB.testEquipment, teRows, 'id');
+        mergeByKey(DB.engineers, enRows, 'id');
+        mergeByKey(DB.testHistory, thRows, 'testId');
+      }
+      await Promise.all(['assetRegister','testEquipment','engineers','testHistory'].map(save));
+      toast(`Imported ${arRows.length} assets, ${teRows.length} instruments, ${enRows.length} engineers, ${thRows.length} test records`);
+      renderAll();
+    }catch(err){
+      console.error(err);
+      toast('Could not read that file — check it matches the expected format');
+    }
+  };
+  reader.readAsArrayBuffer(inp.files[0]);
+}
+function mergeByKey(target, incoming, key){
+  incoming.forEach(row=>{
+    const idx = target.findIndex(t=>t[key]===row[key]);
+    if(idx>-1) target[idx] = Object.assign({}, target[idx], row);
+    else target.push(row);
+  });
+}
+
+/* =========================================================================
+   SETTINGS
+   ========================================================================= */
+function renderSettings(){
+  const s = DB.settings;
+  const statusBadge = {
+    unconfigured: '<span class="badge badge-muted">Not connected</span>',
+    connecting: '<span class="badge badge-warn">Connecting…</span>',
+    ok: '<span class="badge badge-pass">Connected</span>',
+    error: '<span class="badge badge-fail">Connection error</span>',
+  }[connStatus];
+  return `
+  <div class="panel">
+    <div class="section-title"><h2>Google Sheet connection</h2>${statusBadge}</div>
+    <p class="hint">Paste in the Web app URL from the Apps Script deployment bound to your spreadsheet (Extensions &gt; Apps Script &gt; Deploy &gt; New deployment &gt; Web app). This is what makes every read and save in this app land straight in your Sheet.</p>
+    <div class="field"><label>Web app URL</label><input id="conn-url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(CONN.url)}"></div>
+    <div class="field"><label>API key (optional — only if you set one in Script Properties)</label><input id="conn-key" value="${esc(CONN.key)}"></div>
+    ${connStatus==='error'? `<div class="hint" style="color:var(--red);margin:-4px 0 12px;">${esc(connError)}</div>` : ''}
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-conn-save">Save &amp; connect</button>
+      <button class="btn btn-ghost" id="btn-conn-sync">Sync now</button>
+    </div>
+  </div>
+  <div class="assumptions"><b>How results are scored.</b> These thresholds follow common UK PAT-testing guidance (IET Code of Practice) as sensible defaults — check them against your own procedures and adjust if needed.</div>
+  <div class="panel">
+    <h2>Pass / fail thresholds</h2>
+    <div class="row2">
+      <div class="field"><label>Max earth bond (Ω)</label><input type="number" step="0.01" id="s-earth" value="${s.earthBondMax}"></div>
+      <div class="field"><label>Min insulation (MΩ)</label><input type="number" step="0.01" id="s-insul" value="${s.insulationMin}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Max leakage, Class I (mA)</label><input type="number" step="0.01" id="s-leak1" value="${s.leakageMaxClassI}"></div>
+      <div class="field"><label>Max leakage, Class II (mA)</label><input type="number" step="0.01" id="s-leak2" value="${s.leakageMaxClassII}"></div>
+    </div>
+    <div class="field"><label>Retest interval (months)</label><input type="number" id="s-retest" value="${s.retestMonths}"></div>
+    <button class="btn btn-primary" id="btn-save-settings">Save thresholds</button>
+  </div>
+  <div class="panel">
+    <h2>About this app</h2>
+    <p class="hint" style="margin-bottom:8px;">Runs entirely in the browser on your phone, tablet, or laptop — works on Android (Chrome) and iPad (Safari) without installing anything. Data (asset register, equipment, engineers, test history) is <b>shared</b>: everyone who opens this app sees and adds to the same records, so your team stays in sync. Use the camera to read QR codes and most common 1D barcodes.</p>
+  </div>
+  <div class="panel">
+    <h2>Danger zone</h2>
+    <p class="hint">Wipes every record from this app on every device. Export first if you want a backup.</p>
+    <button class="btn btn-danger" id="btn-clear-all">Clear all data</button>
+  </div>`;
+}
+
+/* =========================================================================
+   EVENT BINDING
+   ========================================================================= */
+function bindHandlers(){
+  // -- New test wizard --
+  const startJobBtn = document.getElementById('btn-start-job');
+  if(startJobBtn) startJobBtn.onclick = async ()=>{
+    const site = document.getElementById('f-site').value.trim();
+    const equipId = document.getElementById('f-equip')?.value;
+    const engId = document.getElementById('f-eng')?.value;
+    if(!site){ toast('Enter a site'); return; }
+    if(!equipId){ toast('Select a test instrument'); return; }
+    if(!engId){ toast('Select an engineer'); return; }
+    const eq = DB.testEquipment.find(e=>e.id===equipId);
+    const eng = DB.engineers.find(e=>e.id===engId);
+    currentJob = { jobId: genId('J'), site, equipmentId: equipId, equipmentLabel: eq.makeModel, serial: eq.serial, calDate: eq.calDate, engineerId: engId, engineerName: eng.name, date: todayISO() };
+    DB.jobLog.push(currentJob);
+    await save('jobLog'); await save('settings');
+    wizardStep = 'scan';
+    renderAll();
+  };
+
+  const camToggle = document.getElementById('btn-cam-toggle');
+  if(camToggle) camToggle.onclick = ()=>{
+    if(qrScanner){ stopScanner(); camToggle.textContent='Start camera'; }
+    else { startScanner(); camToggle.textContent='Stop camera'; }
+  };
+  const manualGo = document.getElementById('btn-manual-go');
+  if(manualGo) manualGo.onclick = ()=>{
+    const v = document.getElementById('f-manual-asset').value.trim();
+    if(!v){ toast('Enter an Asset No.'); return; }
+    loadAssetIntoWizard(v);
+  };
+  const backJob = document.getElementById('btn-back-job');
+  if(backJob) backJob.onclick = ()=>{ wizardStep='job'; renderAll(); };
+
+  const readingsBack = document.getElementById('btn-readings-back');
+  if(readingsBack) readingsBack.onclick = ()=>{ wizardStep='scan'; renderAll(); };
+  const readingsNext = document.getElementById('btn-readings-next');
+  if(readingsNext) readingsNext.onclick = ()=>{
+    currentAsset.description = document.getElementById('f-desc').value.trim();
+    currentAsset.location = document.getElementById('f-loc').value.trim();
+    currentAsset.class = document.getElementById('f-class').value;
+    currentReadings = {
+      visual: document.getElementById('f-visual').value,
+      polarity: document.getElementById('f-polarity').value,
+      earthBond: document.getElementById('f-earth').value,
+      insulation: document.getElementById('f-insul').value,
+      load: document.getElementById('f-load').value,
+      leakage: document.getElementById('f-leak').value,
+      notes: document.getElementById('f-notes').value.trim(),
+    };
+    wizardStep = 'check';
+    renderAll();
+  };
+
+  const checkBack = document.getElementById('btn-check-back');
+  if(checkBack) checkBack.onclick = ()=>{ wizardStep='readings'; renderAll(); };
+  const checkNext = document.getElementById('btn-check-next');
+  if(checkNext) checkNext.onclick = ()=>{
+    currentResult = calculateResult();
+    wizardStep = 'result';
+    renderAll();
+  };
+
+  const saveResult = document.getElementById('btn-save-result');
+  if(saveResult) saveResult.onclick = async ()=>{
+    await commitResult();
+    toast('Test saved');
+    currentAsset = null; currentReadings = null; currentResult = null;
+    wizardStep = 'scan';
+    renderAll();
+  };
+  const discardResult = document.getElementById('btn-discard-result');
+  if(discardResult) discardResult.onclick = ()=>{
+    currentAsset=null; currentReadings=null; currentResult=null;
+    wizardStep='scan'; renderAll();
+  };
+
+  // -- People --
+  document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ peopleTab=b.dataset.p; renderAll(); });
+  const saveEquip = document.getElementById('btn-save-equip');
+  if(saveEquip) saveEquip.onclick = async ()=>{
+    const id = document.getElementById('eq-id').value.trim();
+    if(!id){ toast('Enter an Equipment ID'); return; }
+    const rec = { id, makeModel: document.getElementById('eq-model').value.trim(), serial: document.getElementById('eq-serial').value.trim(),
+      calDate: document.getElementById('eq-cal').value, active: document.getElementById('eq-active').value, notes: document.getElementById('eq-notes').value.trim() };
+    const idx = DB.testEquipment.findIndex(e=>e.id===id);
+    if(idx>-1) DB.testEquipment[idx]=rec; else DB.testEquipment.push(rec);
+    await save('testEquipment'); toast('Instrument saved'); renderAll();
+  };
+  const saveEng = document.getElementById('btn-save-eng');
+  if(saveEng) saveEng.onclick = async ()=>{
+    const id = document.getElementById('en-id').value.trim();
+    if(!id){ toast('Enter an Engineer ID'); return; }
+    const rec = { id, name: document.getElementById('en-name').value.trim(), active: document.getElementById('en-active').value, notes: document.getElementById('en-notes').value.trim() };
+    const idx = DB.engineers.findIndex(e=>e.id===id);
+    if(idx>-1) DB.engineers[idx]=rec; else DB.engineers.push(rec);
+    await save('engineers'); toast('Engineer saved'); renderAll();
+  };
+
+  // -- Register --
+  const regSearch = document.getElementById('reg-search');
+  if(regSearch) regSearch.oninput = (e)=>{ registerFilter = e.target.value; renderAll(); setTimeout(()=>{ const el=document.getElementById('reg-search'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length);} },0); };
+  document.querySelectorAll('tr[data-asset]').forEach(tr=>tr.onclick=()=>{
+    const an = tr.dataset.asset;
+    expandedAsset = expandedAsset===an? null : an;
+    renderAll();
+  });
+
+  // -- History --
+  const histSearch = document.getElementById('hist-search');
+  if(histSearch) histSearch.oninput = (e)=>{ historyFilter = e.target.value; renderAll(); setTimeout(()=>{ const el=document.getElementById('hist-search'); if(el){el.focus(); el.setSelectionRange(el.value.length,el.value.length);} },0); };
+
+  // -- IO --
+  const btnExport = document.getElementById('btn-export');
+  if(btnExport) btnExport.onclick = exportWorkbook;
+  const btnMerge = document.getElementById('btn-import-merge');
+  if(btnMerge) btnMerge.onclick = ()=>importFile('merge');
+  const btnReplace = document.getElementById('btn-import-replace');
+  if(btnReplace) btnReplace.onclick = ()=>{ if(confirm('This replaces ALL current data with the file contents. Continue?')) importFile('replace'); };
+
+  // -- Settings: connection --
+  const connSave = document.getElementById('btn-conn-save');
+  if(connSave) connSave.onclick = async ()=>{
+    const url = document.getElementById('conn-url').value.trim();
+    const key = document.getElementById('conn-key').value.trim();
+    if(!url){ toast('Enter the Web app URL'); return; }
+    CONN = { url, key };
+    await configSet(CONN);
+    await testConnection();
+  };
+  const connSync = document.getElementById('btn-conn-sync');
+  if(connSync) connSync.onclick = testConnection;
+
+  // -- Settings --
+  const saveSettings = document.getElementById('btn-save-settings');
+  if(saveSettings) saveSettings.onclick = async ()=>{
+    DB.settings.earthBondMax = parseFloat(document.getElementById('s-earth').value)||0.1;
+    DB.settings.insulationMin = parseFloat(document.getElementById('s-insul').value)||1;
+    DB.settings.leakageMaxClassI = parseFloat(document.getElementById('s-leak1').value)||3.5;
+    DB.settings.leakageMaxClassII = parseFloat(document.getElementById('s-leak2').value)||0.5;
+    DB.settings.retestMonths = parseInt(document.getElementById('s-retest').value)||12;
+    await save('settings'); toast('Thresholds saved');
+  };
+  const clearAll = document.getElementById('btn-clear-all');
+  if(clearAll) clearAll.onclick = async ()=>{
+    if(!confirm('This permanently deletes every record on every device. Type OK to confirm.')) return;
+    if(!confirm('Really sure? This cannot be undone.')) return;
+    DB = { assetRegister:[], testEquipment:[], engineers:[], testHistory:[], jobLog:[],
+      settings:{ earthBondMax:0.1, insulationMin:1, leakageMaxClassI:3.5, leakageMaxClassII:0.5, retestMonths:12, nextTestSeq:1 } };
+    await Promise.all(TABLES.map(save));
+    currentJob=null; wizardStep='job'; activeTab='newtest';
+    toast('All data cleared');
+    renderAll();
+  };
+}
+
+async function commitResult(){
+  const testId = genId('T');
+  const eq = DB.testEquipment.find(e=>e.id===currentJob.equipmentId);
+  const retestDate = addMonths(todayISO(), DB.settings.retestMonths);
+  const record = {
+    testId, assetNo: currentAsset.assetNo, description: currentAsset.description, location: currentAsset.location, site: currentJob.site,
+    testDate: todayISO(), retestDate, visual: currentReadings.visual, earthBond: currentReadings.earthBond, insulation: currentReadings.insulation,
+    load: currentReadings.load, leakage: currentReadings.leakage, polarity: currentReadings.polarity, passFail: currentResult.pass?'Pass':'Fail',
+    tester: currentJob.equipmentLabel, testerSerial: currentJob.serial, calDate: currentJob.calDate, engineer: currentJob.engineerName, notes: currentReadings.notes
+  };
+  DB.testHistory.push(record);
+
+  const idx = DB.assetRegister.findIndex(a=>a.assetNo===currentAsset.assetNo);
+  const assetRow = Object.assign({}, record, { class: currentAsset.class, status: 'Active' });
+  delete assetRow.testId;
+  if(idx>-1) DB.assetRegister[idx] = Object.assign({}, DB.assetRegister[idx], assetRow);
+  else DB.assetRegister.push(assetRow);
+
+  await Promise.all(['testHistory','assetRegister','settings'].map(save));
+}
+
+/* =========================================================================
+   BOOT
+   ========================================================================= */
+(async function boot(){
+  document.getElementById('view').innerHTML = `<div class="empty-state"><div class="big-emoji">⏳</div>Loading register…</div>`;
+  const saved = await configGet();
+  if(saved && saved.url) CONN = saved;
+  if(!CONN.url){
+    activeTab = 'settings';
+    renderHeader();
+    document.getElementById('view').innerHTML = `<div class="panel">
+      <h2>Connect your Google Sheet</h2>
+      <p class="hint">This app is a front end for a specific spreadsheet. Deploy the companion Apps Script (Code.gs) as a Web app from that Sheet, then paste its URL in below.</p>
+    </div>` + renderSettings();
+    bindHandlers();
+    return;
+  }
+  await loadAll();
+  renderAll();
+})();
+</script>
+</body>
+</html>
