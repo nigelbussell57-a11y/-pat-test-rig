@@ -102,6 +102,8 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 60px;}
 }
 .step-dot.done{background:var(--green-bg);border-style:solid;border-color:var(--green);color:var(--green);}
 .step-dot.now{background:var(--ink);border-style:solid;border-color:var(--ink);color:#fff;}
+.step-dot.clickable-step{cursor:pointer;}
+.step-dot.clickable-step:active{transform:scale(0.97);}
 
 /* ---------- Test label motif ---------- */
 .tag-card{
@@ -409,10 +411,14 @@ function renderHeader(){
   if(currentJob){
     sub.textContent = 'Job in progress';
     chip.style.display = 'block';
+    chip.style.cursor = 'pointer';
+    chip.title = 'Back to Job details';
     chip.textContent = `${currentJob.site} · ${currentJob.engineerName}`;
+    chip.onclick = ()=>{ activeTab='newtest'; wizardStep='job'; renderAll(); };
   }else{
     sub.textContent = 'No job started';
     chip.style.display = 'none';
+    chip.onclick = null;
   }
 }
 
@@ -434,12 +440,25 @@ function renderAll(){
    ========================================================================= */
 function stepIndicator(){
   const steps = [['job','Job'],['scan','Scan'],['readings','Readings'],['check','Checks'],['result','Result']];
+  const order=['job','scan','readings','check','result'];
+  const cur = order.indexOf(wizardStep);
   return `<div id="steps">${steps.map(([id,label])=>{
-    const order=['job','scan','readings','check','result'];
-    const cur = order.indexOf(wizardStep), th = order.indexOf(id);
+    const th = order.indexOf(id);
     let cls = th<cur ? 'done' : (th===cur ? 'now' : '');
-    return `<div class="step-dot ${cls}">${label}</div>`;
+    // Job is always reachable (to start over / change job); other steps
+    // are only clickable once you've actually reached them.
+    const reachable = id==='job' || th<=cur;
+    return `<div class="step-dot ${cls}${reachable?' clickable-step':''}" ${reachable?`data-goto="${id}"`:''}>${label}</div>`;
   }).join('')}</div>`;
+}
+
+function gotoStep(id){
+  if(id==='job'){ wizardStep='job'; renderAll(); return; }
+  if((id==='readings'||id==='check'||id==='result') && !currentAsset){ toast('Scan or enter an asset first'); return; }
+  if(id==='check' && !currentReadings){ toast('Enter readings first'); return; }
+  if(id==='result' && !currentResult){ toast('Run the checks first'); return; }
+  wizardStep = id;
+  renderAll();
 }
 
 function renderNewTest(){
@@ -1018,6 +1037,9 @@ function renderSettings(){
    EVENT BINDING
    ========================================================================= */
 function bindHandlers(){
+  // -- Step indicator quick-nav --
+  document.querySelectorAll('[data-goto]').forEach(el=>el.onclick=()=>gotoStep(el.dataset.goto));
+
   // -- New test wizard --
   const startJobBtn = document.getElementById('btn-start-job');
   if(startJobBtn) startJobBtn.onclick = async ()=>{
