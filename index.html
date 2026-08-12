@@ -203,7 +203,7 @@ tr.clickable:active{background:#F5F6F1;}
    ========================================================================= */
 const TABLES = ['assetRegister','testEquipment','engineers','testHistory','jobLog','settings'];
 let DB = { assetRegister: [], testEquipment: [], engineers: [], testHistory: [], jobLog: [],
-  settings: { earthBondMax:0.1, insulationMin:1, leakageMaxClassI:3.5, leakageMaxClassII:0.5, retestMonths:12, nextTestSeq:1 } };
+  settings: { earthBondMax:0.1, insulationMin:1, leakageMaxClassI:3.5, leakageMaxClassII:0.5, microwaveLeakageMax:5, retestMonths:12, nextTestSeq:1 } };
 
 let CONN = { url:'', key:'' };
 let connStatus = 'unconfigured'; // unconfigured | connecting | ok | error
@@ -507,7 +507,8 @@ function renderScanStep(){
 
 function renderReadingsStep(){
   const a = currentAsset;
-  const r = currentReadings || {visual:'', earthBond:'', insulation:'', load:'', leakage:'', polarity:'', notes:''};
+  const r = currentReadings || {visual:'', earthBond:'', insulation:'', load:'', leakage:'', polarity:'', microwaveLeakage:'', notes:''};
+  const isMicrowave = a.applianceType==='Microwave';
   return `
   <div class="tag-card">
     <div class="eyebrow">Asset under test</div>
@@ -520,13 +521,23 @@ function renderReadingsStep(){
       <div class="field"><label>Description</label><input id="f-desc" value="${esc(a.description)}" placeholder="e.g. Desk fan"></div>
       <div class="field"><label>Location</label><input id="f-loc" value="${esc(a.location)}" placeholder="e.g. Office 2, Desk 4"></div>
     </div>
-    <div class="field">
-      <label>Appliance class</label>
-      <select id="f-class">
-        <option value="I" ${a.class==='I'?'selected':''}>Class I (earthed)</option>
-        <option value="II" ${a.class==='II'?'selected':''}>Class II (double insulated)</option>
-      </select>
+    <div class="row2">
+      <div class="field">
+        <label>Appliance class</label>
+        <select id="f-class">
+          <option value="I" ${a.class==='I'?'selected':''}>Class I (earthed)</option>
+          <option value="II" ${a.class==='II'?'selected':''}>Class II (double insulated)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Appliance type</label>
+        <select id="f-appliance-type">
+          <option value="General" ${!isMicrowave?'selected':''}>General</option>
+          <option value="Microwave" ${isMicrowave?'selected':''}>Microwave oven</option>
+        </select>
+      </div>
     </div>
+    ${isMicrowave? `<div class="hint" style="margin:0;">Microwave ovens get an extra RF leakage check below, alongside the usual electrical tests.</div>`:''}
   </div>
   <div class="panel">
     <h2>Visual &amp; polarity</h2>
@@ -559,6 +570,12 @@ function renderReadingsStep(){
     </div>
     <div class="field"><label>Notes</label><textarea id="f-notes" rows="2" placeholder="Optional">${esc(r.notes)}</textarea></div>
   </div>
+  ${isMicrowave? `
+  <div class="panel" style="border-color:var(--yellow-deep);">
+    <h2>Microwave leakage test</h2>
+    <p class="hint">Measure RF leakage at the door seal and viewing screen with a microwave leakage detector, oven running with a load (e.g. a cup of water) inside.</p>
+    <div class="field"><label>Leakage (mW/cm²)</label><input type="number" step="0.01" id="f-mwleak" value="${esc(r.microwaveLeakage)}"></div>
+  </div>` : ''}
   <div class="btn-row">
     <button class="btn btn-ghost" id="btn-readings-back">Back</button>
     <button class="btn btn-primary" id="btn-readings-next">Run checks</button>
@@ -596,6 +613,9 @@ function frontEndCheck(){
     {label:'Leakage reading entered', ok: r.leakage!==''&&!isNaN(r.leakage)},
     {label:'No negative readings', ok: [r.earthBond,r.insulation,r.load,r.leakage].every(v=>v===''||parseFloat(v)>=0)},
   ];
+  if(currentAsset.applianceType==='Microwave'){
+    items.push({label:'Microwave leakage reading entered', ok: r.microwaveLeakage!==''&&!isNaN(r.microwaveLeakage)&&parseFloat(r.microwaveLeakage)>=0});
+  }
   return {items, allOk: items.every(i=>i.ok)};
 }
 function serverCheck(){
@@ -657,11 +677,12 @@ function loadAssetIntoWizard(assetNo){
   const existing = DB.assetRegister.find(a=>String(a.assetNo)===String(assetNo));
   if(existing){
     currentAsset = { assetNo, description: existing.description||'', location: existing.location||'',
-      site: currentJob.site, class: existing.class||'I', isNew:false, _originalAssetNo: assetNo };
+      site: currentJob.site, class: existing.class||'I', applianceType: existing.applianceType||'General',
+      isNew:false, _originalAssetNo: assetNo };
   }else{
-    currentAsset = { assetNo, description:'', location:'', site: currentJob.site, class:'I', isNew:true, _originalAssetNo: assetNo };
+    currentAsset = { assetNo, description:'', location:'', site: currentJob.site, class:'I', applianceType:'General', isNew:true, _originalAssetNo: assetNo };
   }
-  currentReadings = {visual:'', earthBond:'', insulation:'', load:'', leakage:'', polarity:'', notes:''};
+  currentReadings = {visual:'', earthBond:'', insulation:'', load:'', leakage:'', polarity:'', microwaveLeakage:'', notes:''};
   wizardStep = 'readings';
   renderAll();
 }
@@ -682,6 +703,10 @@ function calculateResult(){
   if(!isNaN(leak) && leak > leakLimit) fails.push(`Leakage ${leak}mA exceeds Class ${currentAsset.class} limit of ${leakLimit}mA`);
   const load = parseFloat(r.load);
   if(!isNaN(load) && load===0) fails.push('No load current detected (possible open circuit)');
+  if(currentAsset.applianceType==='Microwave'){
+    const mw = parseFloat(r.microwaveLeakage);
+    if(!isNaN(mw) && mw > s.microwaveLeakageMax) fails.push(`Microwave leakage ${mw}mW/cm² exceeds limit of ${s.microwaveLeakageMax}mW/cm²`);
+  }
   return { pass: fails.length===0, fails };
 }
 
@@ -772,7 +797,7 @@ function renderRegisterRow(a){
   const dueSoon = a.retestDate && daysUntil(a.retestDate)>=0 && daysUntil(a.retestDate)<30;
   const expanded = String(expandedAsset)===String(a.assetNo);
   return `<tr class="clickable" data-asset="${esc(a.assetNo)}">
-    <td class="asset-no">${esc(a.assetNo)}${a.passFail? `<div>${a.passFail==='Pass'?'<span class="badge badge-pass">Pass</span>':'<span class="badge badge-fail">Fail</span>'}</div>`:''}</td>
+    <td class="asset-no">${esc(a.assetNo)}${a.applianceType==='Microwave'?' <span class="badge badge-muted">MW</span>':''}${a.passFail? `<div>${a.passFail==='Pass'?'<span class="badge badge-pass">Pass</span>':'<span class="badge badge-fail">Fail</span>'}</div>`:''}</td>
     <td>${esc(a.location||'—')}<div class="meta" style="font-size:11px;color:var(--ink-soft);">${esc(a.site||'')}</div></td>
     <td>${fmtDate(a.testDate)}<div class="meta" style="font-size:11px;color:var(--ink-soft);">retest ${fmtDate(a.retestDate)}</div></td>
     <td>${overdue?'<span class="badge badge-fail">overdue</span>':dueSoon?'<span class="badge badge-warn">due soon</span>':'<span class="badge badge-pass">ok</span>'}</td>
@@ -781,10 +806,12 @@ function renderRegisterRow(a){
     <div class="detail-grid">
       <div><b>Description</b>${esc(a.description||'—')}</div>
       <div><b>Class</b>${esc(a.class||'I')}</div>
+      <div><b>Appliance type</b>${esc(a.applianceType||'General')}</div>
       <div><b>Earth bond</b>${esc(a.earthBond||'—')} Ω</div>
       <div><b>Insulation</b>${esc(a.insulation||'—')} MΩ</div>
       <div><b>Load</b>${esc(a.load||'—')} A</div>
       <div><b>Leakage</b>${esc(a.leakage||'—')} mA</div>
+      ${a.applianceType==='Microwave'? `<div><b>Microwave leakage</b>${esc(a.microwaveLeakage||'—')} mW/cm²</div>`:''}
       <div><b>Visual</b>${esc(a.visual||'—')}</div>
       <div><b>Polarity</b>${esc(a.polarity||'—')}</div>
       <div><b>Tester</b>${esc(a.tester||'—')}</div>
@@ -851,6 +878,7 @@ function exportWorkbook(){
     'Asset No.':a.assetNo,'Appliance Description':a.description,'Location':a.location,'Site':a.site,
     'Test Date':a.testDate,'Re-Test Date':a.retestDate,'Visual (Pass/Fail)':a.visual,'Earth Bond (Ω)':a.earthBond,
     'Insulation (MΩ)':a.insulation,'Load (A)':a.load,'Leakage (mA)':a.leakage,'Polarity (Pass/Fail)':a.polarity,
+    'Appliance Type':a.applianceType,'Microwave Leakage (mW/cm²)':a.microwaveLeakage,
     'Pass/Fail':a.passFail,'Tester':a.tester,'Tester Serial No.':a.testerSerial,'Calibration Date':a.calDate,
     'Engineer':a.engineer,'Notes':a.notes,'Status':a.status||'Active'
   }));
@@ -861,6 +889,7 @@ function exportWorkbook(){
     'Test ID':h.testId,'Asset No.':h.assetNo,'Appliance Description':h.description,'Location':h.location,'Site':h.site,
     'Test Date':h.testDate,'Re-Test Date':h.retestDate,'Visual (Pass/Fail)':h.visual,'Earth Bond (Ω)':h.earthBond,
     'Insulation (MΩ)':h.insulation,'Load (A)':h.load,'Leakage (mA)':h.leakage,'Polarity (Pass/Fail)':h.polarity,
+    'Appliance Type':h.applianceType,'Microwave Leakage (mW/cm²)':h.microwaveLeakage,
     'Pass/Fail':h.passFail,'Tester':h.tester,'Tester Serial No.':h.testerSerial,'Calibration Date':h.calDate,
     'Engineer':h.engineer,'Notes':h.notes
   }));
@@ -894,7 +923,8 @@ function importFile(mode){
         testDate:excelDateToISO(r['Test Date']), retestDate:excelDateToISO(r['Re-Test Date']), visual:r['Visual (Pass/Fail)']||'',
         earthBond:r['Earth Bond (Ω)']||'', insulation:r['Insulation (MΩ)']||'', load:r['Load (A)']||'', leakage:r['Leakage (mA)']||'',
         polarity:r['Polarity (Pass/Fail)']||'', passFail:r['Pass/Fail']||'', tester:r['Tester']||'', testerSerial:r['Tester Serial No.']||'',
-        calDate:excelDateToISO(r['Calibration Date']), engineer:r['Engineer']||'', notes:r['Notes']||'', status:r['Status']||'Active', class:'I'
+        calDate:excelDateToISO(r['Calibration Date']), engineer:r['Engineer']||'', notes:r['Notes']||'', status:r['Status']||'Active',
+        class:'I', applianceType:r['Appliance Type']||'General', microwaveLeakage:r['Microwave Leakage (mW/cm²)']||''
       })).filter(r=>r.assetNo);
       const teRows = sheetToRows(wb,'Test Equipment').map(r=>({id:String(r['Equipment ID']||''), makeModel:r['Make / Model']||'', serial:r['Serial No.']||'', calDate:excelDateToISO(r['Calibration Date']), active:r['Active']||'Yes', notes:r['Notes']||''})).filter(r=>r.id);
       const enRows = sheetToRows(wb,'Engineers').map(r=>({id:String(r['Engineer ID']||''), name:r['Engineer Name']||'', active:r['Active']||'Yes', notes:r['Notes']||''})).filter(r=>r.id);
@@ -903,7 +933,8 @@ function importFile(mode){
         testDate:excelDateToISO(r['Test Date']), retestDate:excelDateToISO(r['Re-Test Date']), visual:r['Visual (Pass/Fail)']||'',
         earthBond:r['Earth Bond (Ω)']||'', insulation:r['Insulation (MΩ)']||'', load:r['Load (A)']||'', leakage:r['Leakage (mA)']||'',
         polarity:r['Polarity (Pass/Fail)']||'', passFail:r['Pass/Fail']||'', tester:r['Tester']||'', testerSerial:r['Tester Serial No.']||'',
-        calDate:excelDateToISO(r['Calibration Date']), engineer:r['Engineer']||'', notes:r['Notes']||''
+        calDate:excelDateToISO(r['Calibration Date']), engineer:r['Engineer']||'', notes:r['Notes']||'',
+        applianceType:r['Appliance Type']||'General', microwaveLeakage:r['Microwave Leakage (mW/cm²)']||''
       })).filter(r=>r.testId);
 
       if(mode==='replace'){
@@ -966,7 +997,10 @@ function renderSettings(){
       <div class="field"><label>Max leakage, Class I (mA)</label><input type="number" step="0.01" id="s-leak1" value="${s.leakageMaxClassI}"></div>
       <div class="field"><label>Max leakage, Class II (mA)</label><input type="number" step="0.01" id="s-leak2" value="${s.leakageMaxClassII}"></div>
     </div>
-    <div class="field"><label>Retest interval (months)</label><input type="number" id="s-retest" value="${s.retestMonths}"></div>
+    <div class="row2">
+      <div class="field"><label>Max microwave leakage (mW/cm²)</label><input type="number" step="0.01" id="s-mwleak" value="${s.microwaveLeakageMax}"></div>
+      <div class="field"><label>Retest interval (months)</label><input type="number" id="s-retest" value="${s.retestMonths}"></div>
+    </div>
     <button class="btn btn-primary" id="btn-save-settings">Save thresholds</button>
   </div>
   <div class="panel">
@@ -1023,6 +1057,7 @@ function bindHandlers(){
     currentAsset.description = document.getElementById('f-desc').value.trim();
     currentAsset.location = document.getElementById('f-loc').value.trim();
     currentAsset.class = document.getElementById('f-class').value;
+    currentAsset.applianceType = document.getElementById('f-appliance-type').value;
     currentReadings = {
       visual: document.getElementById('f-visual').value,
       polarity: document.getElementById('f-polarity').value,
@@ -1030,6 +1065,7 @@ function bindHandlers(){
       insulation: document.getElementById('f-insul').value,
       load: document.getElementById('f-load').value,
       leakage: document.getElementById('f-leak').value,
+      microwaveLeakage: currentAsset.applianceType==='Microwave' ? (document.getElementById('f-mwleak')?.value ?? '') : '',
       notes: document.getElementById('f-notes').value.trim(),
     };
     wizardStep = 'check';
@@ -1122,6 +1158,7 @@ function bindHandlers(){
     DB.settings.insulationMin = parseFloat(document.getElementById('s-insul').value)||1;
     DB.settings.leakageMaxClassI = parseFloat(document.getElementById('s-leak1').value)||3.5;
     DB.settings.leakageMaxClassII = parseFloat(document.getElementById('s-leak2').value)||0.5;
+    DB.settings.microwaveLeakageMax = parseFloat(document.getElementById('s-mwleak').value)||5;
     DB.settings.retestMonths = parseInt(document.getElementById('s-retest').value)||12;
     await save('settings'); toast('Thresholds saved');
   };
@@ -1130,7 +1167,7 @@ function bindHandlers(){
     if(!confirm('This permanently deletes every record on every device. Type OK to confirm.')) return;
     if(!confirm('Really sure? This cannot be undone.')) return;
     DB = { assetRegister:[], testEquipment:[], engineers:[], testHistory:[], jobLog:[],
-      settings:{ earthBondMax:0.1, insulationMin:1, leakageMaxClassI:3.5, leakageMaxClassII:0.5, retestMonths:12, nextTestSeq:1 } };
+      settings:{ earthBondMax:0.1, insulationMin:1, leakageMaxClassI:3.5, leakageMaxClassII:0.5, microwaveLeakageMax:5, retestMonths:12, nextTestSeq:1 } };
     await saveMany(TABLES);
     currentJob=null; wizardStep='job'; activeTab='newtest';
     toast('All data cleared');
@@ -1146,7 +1183,8 @@ async function commitResult(){
     testId, assetNo: currentAsset.assetNo, description: currentAsset.description, location: currentAsset.location, site: currentJob.site,
     testDate: todayISO(), retestDate, visual: currentReadings.visual, earthBond: currentReadings.earthBond, insulation: currentReadings.insulation,
     load: currentReadings.load, leakage: currentReadings.leakage, polarity: currentReadings.polarity, passFail: currentResult.pass?'Pass':'Fail',
-    tester: currentJob.equipmentLabel, testerSerial: currentJob.serial, calDate: currentJob.calDate, engineer: currentJob.engineerName, notes: currentReadings.notes
+    tester: currentJob.equipmentLabel, testerSerial: currentJob.serial, calDate: currentJob.calDate, engineer: currentJob.engineerName, notes: currentReadings.notes,
+    applianceType: currentAsset.applianceType, microwaveLeakage: currentReadings.microwaveLeakage
   };
   DB.testHistory.push(record);
 
