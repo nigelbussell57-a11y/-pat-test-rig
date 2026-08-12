@@ -196,7 +196,6 @@ tr.clickable:active{background:#F5F6F1;}
 
 <main id="view"></main>
 <div class="toast" id="toast"></div>
-<iframe name="sheetWriteFrame" style="display:none" title="background save target"></iframe>
 
 <script>
 /* =========================================================================
@@ -279,12 +278,24 @@ async function loadAll(){
 // turns into a GET and the posted data is lost before it's saved. A plain
 // form submission doesn't have that problem — Apps Script runs doPost with
 // the real body first, same as it always has for ordinary HTML forms.
+//
+// Each call gets its OWN throwaway iframe. Reusing one shared iframe for
+// several submissions in quick succession (e.g. saving a test result,
+// which writes to three tables at once) causes the browser to cancel the
+// earlier submissions the moment a later one starts navigating the same
+// frame — so only the last write would ever actually land.
 function formPost(payloadObj){
   return new Promise((resolve)=>{
+    const frameName = 'sheetWriteFrame_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const iframe = document.createElement('iframe');
+    iframe.name = frameName;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = CONN.url;
-    form.target = 'sheetWriteFrame';
+    form.target = frameName;
     form.style.display = 'none';
     const input = document.createElement('input');
     input.type = 'hidden';
@@ -293,15 +304,30 @@ function formPost(payloadObj){
     form.appendChild(input);
     document.body.appendChild(form);
     form.submit();
-    setTimeout(()=>{ form.remove(); resolve(); }, 400);
+    setTimeout(()=>{ form.remove(); iframe.remove(); resolve(); }, 900);
   });
 }
 
+// Raw write, no confirmation step — used when writing several tables in a
+// row so they can be sequenced without each one racing its own re-sync.
+async function writeTableRemote(table){
+  if(!CONN.url) return;
+  await formPost({ action:'writeTable', table, rows: DB[table], key: CONN.key });
+}
 async function save(table){
   if(!CONN.url){ toast('Not connected to a Google Sheet — see Settings'); return; }
-  await formPost({ action:'writeTable', table, rows: DB[table], key: CONN.key });
-  // Confirm shortly after by re-reading from the sheet. Runs quietly in
-  // the background so the caller's own toast/render isn't held up.
+  await writeTableRemote(table);
+  setTimeout(async ()=>{
+    await loadAll();
+    renderAll();
+    if(connStatus==='error') toast('Could not confirm the save reached the sheet — check Settings');
+  }, 1500);
+}
+// Writes several tables one after another (never in parallel — see the
+// note on formPost above), then confirms once at the end.
+async function saveMany(tables){
+  if(!CONN.url){ toast('Not connected to a Google Sheet — see Settings'); return; }
+  for(const t of tables){ await writeTableRemote(t); }
   setTimeout(async ()=>{
     await loadAll();
     renderAll();
@@ -888,7 +914,7 @@ function importFile(mode){
         mergeByKey(DB.engineers, enRows, 'id');
         mergeByKey(DB.testHistory, thRows, 'testId');
       }
-      await Promise.all(['assetRegister','testEquipment','engineers','testHistory'].map(save));
+      await saveMany(['assetRegister','testEquipment','engineers','testHistory']);
       toast(`Imported ${arRows.length} assets, ${teRows.length} instruments, ${enRows.length} engineers, ${thRows.length} test records`);
       renderAll();
     }catch(err){
@@ -1105,7 +1131,7 @@ function bindHandlers(){
     if(!confirm('Really sure? This cannot be undone.')) return;
     DB = { assetRegister:[], testEquipment:[], engineers:[], testHistory:[], jobLog:[],
       settings:{ earthBondMax:0.1, insulationMin:1, leakageMaxClassI:3.5, leakageMaxClassII:0.5, retestMonths:12, nextTestSeq:1 } };
-    await Promise.all(TABLES.map(save));
+    await saveMany(TABLES);
     currentJob=null; wizardStep='job'; activeTab='newtest';
     toast('All data cleared');
     renderAll();
@@ -1130,7 +1156,7 @@ async function commitResult(){
   if(idx>-1) DB.assetRegister[idx] = Object.assign({}, DB.assetRegister[idx], assetRow);
   else DB.assetRegister.push(assetRow);
 
-  await Promise.all(['testHistory','assetRegister','settings'].map(save));
+  await saveMany(['testHistory','assetRegister','settings']);
 }
 
 /* =========================================================================
