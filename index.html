@@ -604,7 +604,13 @@ function renderReadingsStep(){
 function renderCheckStep(){
   const fe = frontEndCheck();
   const se = serverCheck();
+  const a = currentAsset;
   return `
+  <div class="tag-card">
+    <div class="eyebrow">Checking</div>
+    <div class="big">${esc(a.assetNo)}</div>
+    <div class="sub">${esc(a.description||'Description not recorded')}${a.location? ' · '+esc(a.location):''}${a.applianceType==='Microwave'?' · Microwave':''}</div>
+  </div>
   <div class="panel">
     <h2>Front-end check</h2>
     <p class="hint">Confirms every reading needed to score this test is present and sane before anything is written to the register.</p>
@@ -654,7 +660,7 @@ function renderResultStep(){
   return `
   <div class="result-hero ${res.pass?'pass':'fail'}">
     <div class="status">${res.pass?'PASS':'FAIL'}</div>
-    <div class="hint" style="margin-top:6px;">${esc(currentAsset.assetNo)} · ${esc(currentAsset.description)}</div>
+    <div class="hint" style="margin-top:6px;">${esc(currentAsset.assetNo)} · ${esc(currentAsset.description||'Description not recorded')}</div>
     ${res.fails.length? `<ul class="fail-list">${res.fails.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>` : ''}
   </div>
   <div class="panel">
@@ -816,7 +822,8 @@ function renderRegisterRow(a){
   const dueSoon = a.retestDate && daysUntil(a.retestDate)>=0 && daysUntil(a.retestDate)<30;
   const expanded = String(expandedAsset)===String(a.assetNo);
   return `<tr class="clickable" data-asset="${esc(a.assetNo)}">
-    <td class="asset-no">${esc(a.assetNo)}${a.applianceType==='Microwave'?' <span class="badge badge-muted">MW</span>':''}${a.passFail? `<div>${a.passFail==='Pass'?'<span class="badge badge-pass">Pass</span>':'<span class="badge badge-fail">Fail</span>'}</div>`:''}</td>
+    <td class="asset-no">${esc(a.assetNo)}${a.applianceType==='Microwave'?' <span class="badge badge-muted">MW</span>':''}${a.passFail? `<div>${a.passFail==='Pass'?'<span class="badge badge-pass">Pass</span>':'<span class="badge badge-fail">Fail</span>'}</div>`:''}
+      <div class="meta" style="font-size:11px;color:var(--ink-soft);font-family:'Inter';font-weight:500;">${esc(a.description||'No description')}</div></td>
     <td>${esc(a.location||'—')}<div class="meta" style="font-size:11px;color:var(--ink-soft);">${esc(a.site||'')}</div></td>
     <td>${fmtDate(a.testDate)}<div class="meta" style="font-size:11px;color:var(--ink-soft);">retest ${fmtDate(a.retestDate)}</div></td>
     <td>${overdue?'<span class="badge badge-fail">overdue</span>':dueSoon?'<span class="badge badge-warn">due soon</span>':'<span class="badge badge-pass">ok</span>'}</td>
@@ -861,7 +868,7 @@ function renderHistory(){
     ${rows.length? `<table><thead><tr><th>Date</th><th>Asset</th><th>Site</th><th>Engineer</th><th>Result</th></tr></thead>
     <tbody>${rows.map(h=>`<tr>
       <td>${fmtDate(h.testDate)}</td>
-      <td class="asset-no">${esc(h.assetNo)}</td>
+      <td class="asset-no">${esc(h.assetNo)}<div class="meta" style="font-size:11px;color:var(--ink-soft);font-family:'Inter';font-weight:500;">${esc(h.description||'No description')}</div></td>
       <td>${esc(h.site||'—')}</td>
       <td>${esc(h.engineer||'—')}</td>
       <td>${h.passFail==='Pass'?'<span class="badge badge-pass">Pass</span>':'<span class="badge badge-fail">Fail</span>'}</td>
