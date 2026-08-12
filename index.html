@@ -239,12 +239,29 @@ function buildUrl(action){
   return u.toString();
 }
 
+// Apps Script's cross-origin fetch responses are unreliable (they go
+// through an internal redirect that often drops CORS headers, which
+// shows up in the browser as a plain "Failed to fetch"). JSONP sidesteps
+// this entirely by loading the response as a <script> tag, which browsers
+// never subject to CORS.
+function jsonp(url){
+  return new Promise((resolve, reject)=>{
+    const cbName = 'jsonpCb' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    const cleanup = ()=>{ delete window[cbName]; script.remove(); };
+    const timer = setTimeout(()=>{ cleanup(); reject(new Error('Request timed out — check the URL')); }, 15000);
+    window[cbName] = (data)=>{ clearTimeout(timer); cleanup(); resolve(data); };
+    script.onerror = ()=>{ clearTimeout(timer); cleanup(); reject(new Error('Could not reach that URL')); };
+    script.src = url + (url.includes('?')?'&':'?') + 'callback=' + cbName;
+    document.body.appendChild(script);
+  });
+}
+
 async function loadAll(){
   if(!CONN.url){ connStatus='unconfigured'; return; }
   connStatus = 'connecting';
   try{
-    const res = await fetch(buildUrl('readAll'));
-    const data = await res.json();
+    const data = await jsonp(buildUrl('readAll'));
     if(data.error) throw new Error(data.error);
     TABLES.forEach(t=>{ if(data[t]!==undefined) DB[t] = data[t]; });
     if(data.settings) DB.settings = Object.assign({}, DB.settings, data.settings);
