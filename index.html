@@ -605,7 +605,7 @@ function serverCheck(){
   items.push({label: eq? `Instrument calibration current (due ${fmtDate(eq.calDate)})` : 'Instrument on record', ok: calDays!==null && calDays>=0});
   const eng = DB.engineers.find(e=>e.id===currentJob.engineerId);
   items.push({label: eng? `Engineer "${eng.name}" active on register` : 'Engineer on record', ok: !!eng && eng.active!=='No'});
-  const dup = DB.assetRegister.find(a=>a.assetNo===currentAsset.assetNo && a.assetNo!==currentAsset._originalAssetNo);
+  const dup = DB.assetRegister.find(a=>String(a.assetNo)===String(currentAsset.assetNo) && String(a.assetNo)!==String(currentAsset._originalAssetNo));
   items.push({label: currentAsset.isNew ? 'Asset No. not already in register' : 'Existing asset record located', ok: currentAsset.isNew? !dup : true});
   return {items};
 }
@@ -654,7 +654,7 @@ function onAssetScanned(text){
   loadAssetIntoWizard(text.trim());
 }
 function loadAssetIntoWizard(assetNo){
-  const existing = DB.assetRegister.find(a=>a.assetNo===assetNo);
+  const existing = DB.assetRegister.find(a=>String(a.assetNo)===String(assetNo));
   if(existing){
     currentAsset = { assetNo, description: existing.description||'', location: existing.location||'',
       site: currentJob.site, class: existing.class||'I', isNew:false, _originalAssetNo: assetNo };
@@ -757,7 +757,7 @@ let registerFilter = '';
 let expandedAsset = null;
 function renderRegister(){
   const q = registerFilter.toLowerCase();
-  const rows = DB.assetRegister.filter(a=>!q || [a.assetNo,a.description,a.location,a.site].some(v=>(v||'').toLowerCase().includes(q)));
+  const rows = DB.assetRegister.filter(a=>!q || [a.assetNo,a.description,a.location,a.site].some(v=>String(v||'').toLowerCase().includes(q)));
   return `
   <div class="toolbar"><input id="reg-search" placeholder="Search asset no., description, location, site…" value="${esc(registerFilter)}"></div>
   <div class="panel">
@@ -770,7 +770,7 @@ function renderRegister(){
 function renderRegisterRow(a){
   const overdue = a.retestDate && daysUntil(a.retestDate)<0;
   const dueSoon = a.retestDate && daysUntil(a.retestDate)>=0 && daysUntil(a.retestDate)<30;
-  const expanded = expandedAsset===a.assetNo;
+  const expanded = String(expandedAsset)===String(a.assetNo);
   return `<tr class="clickable" data-asset="${esc(a.assetNo)}">
     <td class="asset-no">${esc(a.assetNo)}${a.passFail? `<div>${a.passFail==='Pass'?'<span class="badge badge-pass">Pass</span>':'<span class="badge badge-fail">Fail</span>'}</div>`:''}</td>
     <td>${esc(a.location||'—')}<div class="meta" style="font-size:11px;color:var(--ink-soft);">${esc(a.site||'')}</div></td>
@@ -795,7 +795,7 @@ function renderRegisterRow(a){
   </div></td></tr>` : ''}`;
 }
 function renderMiniHistory(assetNo){
-  const hist = DB.testHistory.filter(h=>h.assetNo===assetNo).sort((a,b)=>b.testDate.localeCompare(a.testDate));
+  const hist = DB.testHistory.filter(h=>String(h.assetNo)===String(assetNo)).sort((a,b)=>b.testDate.localeCompare(a.testDate));
   if(!hist.length) return `<div class="small-note">No previous tests recorded.</div>`;
   return hist.slice(0,6).map(h=>`<div class="list-row"><div>${fmtDate(h.testDate)} · ${esc(h.engineer||'')}</div>${h.passFail==='Pass'?'<span class="badge badge-pass">Pass</span>':'<span class="badge badge-fail">Fail</span>'}</div>`).join('');
 }
@@ -806,7 +806,7 @@ function renderMiniHistory(assetNo){
 let historyFilter = '';
 function renderHistory(){
   const q = historyFilter.toLowerCase();
-  const rows = DB.testHistory.filter(h=>!q || [h.assetNo,h.site,h.engineer,h.description].some(v=>(v||'').toLowerCase().includes(q)))
+  const rows = DB.testHistory.filter(h=>!q || [h.assetNo,h.site,h.engineer,h.description].some(v=>String(v||'').toLowerCase().includes(q)))
     .sort((a,b)=>b.testDate.localeCompare(a.testDate));
   return `
   <div class="toolbar"><input id="hist-search" placeholder="Search asset, site, engineer…" value="${esc(historyFilter)}"></div>
@@ -1150,7 +1150,7 @@ async function commitResult(){
   };
   DB.testHistory.push(record);
 
-  const idx = DB.assetRegister.findIndex(a=>a.assetNo===currentAsset.assetNo);
+  const idx = DB.assetRegister.findIndex(a=>String(a.assetNo)===String(currentAsset.assetNo));
   const assetRow = Object.assign({}, record, { class: currentAsset.class, status: 'Active' });
   delete assetRow.testId;
   if(idx>-1) DB.assetRegister[idx] = Object.assign({}, DB.assetRegister[idx], assetRow);
