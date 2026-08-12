@@ -196,6 +196,7 @@ tr.clickable:active{background:#F5F6F1;}
 
 <main id="view"></main>
 <div class="toast" id="toast"></div>
+<iframe name="sheetWriteFrame" style="display:none" title="background save target"></iframe>
 
 <script>
 /* =========================================================================
@@ -272,29 +273,40 @@ async function loadAll(){
   }
 }
 
-// Writes go via POST with a text/plain body — this avoids a CORS
-// pre-flight (Apps Script can't answer OPTIONS requests), which is the
-// standard way to call an Apps Script web app from another domain.
+// Writes go through a real HTML form targeting a hidden iframe rather than
+// fetch(). This matters: Apps Script's /exec URL replies to a POST with an
+// internal redirect, and when fetch() follows that redirect it silently
+// turns into a GET and the posted data is lost before it's saved. A plain
+// form submission doesn't have that problem — Apps Script runs doPost with
+// the real body first, same as it always has for ordinary HTML forms.
+function formPost(payloadObj){
+  return new Promise((resolve)=>{
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = CONN.url;
+    form.target = 'sheetWriteFrame';
+    form.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    input.value = JSON.stringify(payloadObj);
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(()=>{ form.remove(); resolve(); }, 400);
+  });
+}
+
 async function save(table){
   if(!CONN.url){ toast('Not connected to a Google Sheet — see Settings'); return; }
-  const payload = JSON.stringify({ action:'writeTable', table, rows: DB[table], key: CONN.key });
-  try{
-    const res = await fetch(CONN.url, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: payload });
-    const data = await res.json();
-    if(data.error) throw new Error(data.error);
-  }catch(e){
-    // Some browsers still block reading the response even though the
-    // write itself lands. Fall back to a fire-and-forget request, then
-    // confirm by re-reading straight after.
-    console.warn('save() readable response failed, retrying no-cors', e);
-    try{
-      await fetch(CONN.url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: payload });
-      toast('Saved (could not confirm — check the sheet)');
-    }catch(e2){
-      toast('Save failed — check your connection in Settings');
-      console.error('storage save error', table, e2);
-    }
-  }
+  await formPost({ action:'writeTable', table, rows: DB[table], key: CONN.key });
+  // Confirm shortly after by re-reading from the sheet. Runs quietly in
+  // the background so the caller's own toast/render isn't held up.
+  setTimeout(async ()=>{
+    await loadAll();
+    renderAll();
+    if(connStatus==='error') toast('Could not confirm the save reached the sheet — check Settings');
+  }, 1500);
 }
 async function testConnection(){
   connStatus = 'connecting'; renderAll();
