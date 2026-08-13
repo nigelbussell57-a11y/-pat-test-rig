@@ -3,15 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Asset Test Rig — Offline Edition</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#16233A">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="PAT Offline">
-<link rel="apple-touch-icon" href="icon-192.png">
-<script src="./html5-qrcode.min.js"></script>
-<script src="./xlsx.full.min.js"></script>
+<title>Asset Test Rig — PAT Testing System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
   --ink:#16233A;
@@ -35,12 +31,12 @@ html,body{margin:0;padding:0;}
 body{
   background:var(--paper);
   color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  font-family:'Inter',system-ui,sans-serif;
   -webkit-tap-highlight-color:transparent;
   padding-bottom:env(safe-area-inset-bottom);
 }
-h1,h2,h3{font-family:inherit;font-weight:700;margin:0 0 4px;letter-spacing:-0.01em;}
-.mono{font-family:ui-monospace,'SF Mono','Cascadia Code','Segoe UI Mono',Consolas,'Roboto Mono',monospace;}
+h1,h2,h3{font-family:'Space Grotesk',sans-serif;margin:0 0 4px;letter-spacing:-0.01em;}
+.mono{font-family:'IBM Plex Mono',monospace;}
 button{font-family:inherit;cursor:pointer;}
 input,select,textarea{font-family:inherit;font-size:15px;}
 
@@ -192,7 +188,7 @@ tr.clickable:active{background:#F5F6F1;}
   <div class="brand">
     <div class="brand-tag">PAT</div>
     <div>
-      <h1>Asset Test Rig <span style="opacity:.6;font-weight:500;">· Offline</span></h1>
+      <h1>Asset Test Rig</h1>
       <span id="job-sub">No job started</span>
     </div>
     <div class="job-chip" id="job-chip" style="display:none;"></div>
@@ -205,85 +201,149 @@ tr.clickable:active{background:#F5F6F1;}
 
 <script>
 /* =========================================================================
-   STORAGE LAYER — local to this device only, via IndexedDB. Nothing here
-   ever touches a network. All data lives in this one browser, on this one
-   device, until you export/import an Excel backup yourself.
+   STORAGE LAYER — your Google Sheet, via a bound Apps Script Web App
    ========================================================================= */
 const TABLES = ['assetRegister','testEquipment','engineers','testHistory','jobLog','settings'];
 let DB = { assetRegister: [], testEquipment: [], engineers: [], testHistory: [], jobLog: [],
   settings: { earthBondMax:0.1, insulationMin:1, leakageMaxClassI:3.5, leakageMaxClassII:0.5, microwaveLeakageMax:5, retestMonths:12, nextTestSeq:1 } };
 
-const IDB_NAME = 'patTestRigOffline';
-const IDB_VERSION = 1;
-const IDB_STORE = 'tables';
+let CONN = { url:'', key:'' };
+let connStatus = 'unconfigured'; // unconfigured | connecting | ok | error
+let connError = '';
 
-function openIdb(){
+// Small persistence helper: prefers window.storage (Claude artifacts),
+// falls back to localStorage when this file is hosted on its own (e.g.
+// GitHub Pages) where window.storage won't exist.
+async function configGet(){
+  try{
+    if(window.storage){
+      const r = await window.storage.get('sheetConnection', true);
+      if(r && r.value) return JSON.parse(r.value);
+      return null;
+    }
+  }catch(e){ /* not set yet */ }
+  try{
+    const raw = localStorage.getItem('sheetConnection');
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+async function configSet(conn){
+  try{
+    if(window.storage){ await window.storage.set('sheetConnection', JSON.stringify(conn), true); return; }
+  }catch(e){}
+  try{ localStorage.setItem('sheetConnection', JSON.stringify(conn)); }catch(e){}
+}
+
+function buildUrl(action){
+  const u = new URL(CONN.url);
+  u.searchParams.set('action', action);
+  if(CONN.key) u.searchParams.set('key', CONN.key);
+  return u.toString();
+}
+
+// Apps Script's cross-origin fetch responses are unreliable (they go
+// through an internal redirect that often drops CORS headers, which
+// shows up in the browser as a plain "Failed to fetch"). JSONP sidesteps
+// this entirely by loading the response as a <script> tag, which browsers
+// never subject to CORS.
+function jsonp(url){
   return new Promise((resolve, reject)=>{
-    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-    req.onupgradeneeded = (e)=>{
-      const db = e.target.result;
-      if(!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
-    };
-    req.onsuccess = ()=>resolve(req.result);
-    req.onerror = ()=>reject(req.error);
+    const cbName = 'jsonpCb' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    const cleanup = ()=>{ delete window[cbName]; script.remove(); };
+    const timer = setTimeout(()=>{ cleanup(); reject(new Error('Request timed out — check the URL')); }, 15000);
+    window[cbName] = (data)=>{ clearTimeout(timer); cleanup(); resolve(data); };
+    script.onerror = ()=>{ clearTimeout(timer); cleanup(); reject(new Error('Could not reach that URL')); };
+    script.src = url + (url.includes('?')?'&':'?') + 'callback=' + cbName;
+    document.body.appendChild(script);
   });
 }
-function idbGet(key){
-  return openIdb().then(db=>new Promise((resolve, reject)=>{
-    const tx = db.transaction(IDB_STORE, 'readonly');
-    const req = tx.objectStore(IDB_STORE).get(key);
-    req.onsuccess = ()=>resolve(req.result);
-    req.onerror = ()=>reject(req.error);
-  }));
-}
-function idbSet(key, value){
-  return openIdb().then(db=>new Promise((resolve, reject)=>{
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    const req = tx.objectStore(IDB_STORE).put(value, key);
-    req.onsuccess = ()=>resolve();
-    req.onerror = ()=>reject(req.error);
-  }));
-}
-function idbClearAll(){
-  return openIdb().then(db=>new Promise((resolve, reject)=>{
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    const req = tx.objectStore(IDB_STORE).clear();
-    req.onsuccess = ()=>resolve();
-    req.onerror = ()=>reject(req.error);
-  }));
-}
-
-let storageStatus = 'ok'; // ok | error — IndexedDB can fail in private/incognito modes on some browsers
 
 async function loadAll(){
+  if(!CONN.url){ connStatus='unconfigured'; return; }
+  connStatus = 'connecting';
   try{
-    for(const t of TABLES){
-      const val = await idbGet(t);
-      if(val !== undefined && val !== null){
-        if(t==='settings') DB.settings = Object.assign({}, DB.settings, val);
-        else DB[t] = val;
-      }
-    }
-    storageStatus = 'ok';
+    const data = await jsonp(buildUrl('readAll'));
+    if(data.error) throw new Error(data.error);
+    TABLES.forEach(t=>{ if(data[t]!==undefined) DB[t] = data[t]; });
+    if(data.settings) DB.settings = Object.assign({}, DB.settings, data.settings);
+    connStatus = 'ok'; connError='';
   }catch(e){
-    storageStatus = 'error';
-    console.error('IndexedDB load error', e);
-    toast('Could not open local storage — try a normal browser tab, not private/incognito mode');
+    connStatus = 'error'; connError = String(e.message||e);
+    console.error('load error', e);
   }
+}
+
+// Writes go through a real HTML form targeting a hidden iframe rather than
+// fetch(). This matters: Apps Script's /exec URL replies to a POST with an
+// internal redirect, and when fetch() follows that redirect it silently
+// turns into a GET and the posted data is lost before it's saved. A plain
+// form submission doesn't have that problem — Apps Script runs doPost with
+// the real body first, same as it always has for ordinary HTML forms.
+//
+// Each call gets its OWN throwaway iframe. Reusing one shared iframe for
+// several submissions in quick succession (e.g. saving a test result,
+// which writes to three tables at once) causes the browser to cancel the
+// earlier submissions the moment a later one starts navigating the same
+// frame — so only the last write would ever actually land.
+function formPost(payloadObj){
+  return new Promise((resolve)=>{
+    const frameName = 'sheetWriteFrame_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const iframe = document.createElement('iframe');
+    iframe.name = frameName;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = CONN.url;
+    form.target = frameName;
+    form.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    input.value = JSON.stringify(payloadObj);
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(()=>{ form.remove(); iframe.remove(); resolve(); }, 900);
+  });
+}
+
+// Raw write, no confirmation step — used when writing several tables in a
+// row so they can be sequenced without each one racing its own re-sync.
+async function writeTableRemote(table){
+  if(!CONN.url) return;
+  await formPost({ action:'writeTable', table, rows: DB[table], key: CONN.key });
 }
 async function save(table){
-  try{
-    await idbSet(table, DB[table]);
-    storageStatus = 'ok';
-  }catch(e){
-    storageStatus = 'error';
-    console.error('IndexedDB save error', table, e);
-    toast('Save failed — local storage may be full or unavailable');
-  }
+  if(!CONN.url){ toast('Not connected to a Google Sheet — see Settings'); return; }
+  await writeTableRemote(table);
+  setTimeout(async ()=>{
+    await loadAll();
+    renderAll();
+    if(connStatus==='error') toast('Could not confirm the save reached the sheet — check Settings');
+  }, 1500);
 }
+// Writes several tables one after another (never in parallel — see the
+// note on formPost above), then confirms once at the end.
 async function saveMany(tables){
-  for(const t of tables){ await save(t); }
+  if(!CONN.url){ toast('Not connected to a Google Sheet — see Settings'); return; }
+  for(const t of tables){ await writeTableRemote(t); }
+  setTimeout(async ()=>{
+    await loadAll();
+    renderAll();
+    if(connStatus==='error') toast('Could not confirm the save reached the sheet — check Settings');
+  }, 1500);
 }
+async function testConnection(){
+  connStatus = 'connecting'; renderAll();
+  await loadAll();
+  renderAll();
+  if(connStatus==='ok') toast('Connected to the Google Sheet');
+  else toast('Could not connect — check the URL and key');
+}
+
 /* =========================================================================
    STATE
    ========================================================================= */
@@ -575,7 +635,7 @@ function renderCheckStep(){
   </div>
   <div class="panel">
     <h2>Server check</h2>
-    <p class="hint">Data-integrity pass against the register: instrument calibration, engineer status, and duplicate-record checks — run against the register stored locally on this device.</p>
+    <p class="hint">Data-integrity pass against the register: instrument calibration, engineer status, and duplicate-record checks. (This app runs locally on your device with synced storage — there's no separate network server, so this check runs against the shared register instead.)</p>
     <ul class="check-list">${se.items.map(i=>`<li><span class="${i.ok?'check-ok':'check-pending'}">${i.ok?'✓':'⚠'}</span> ${esc(i.label)}</li>`).join('')}</ul>
   </div>
   <div class="btn-row">
@@ -851,7 +911,7 @@ function renderHistory(){
    ========================================================================= */
 function renderIO(){
   return `
-  <div class="assumptions">This is a local-only app — nothing syncs anywhere automatically. Excel export is your backup and your way to move data to another device; import brings a backup (or someone else's exported data) back in.</div>
+  <div class="assumptions">Your Google Sheet is now the live database — every save already lands there directly. Use these only for an offline backup copy, or to bulk-load records some other way than scanning.</div>
   <div class="panel">
     <h2>Export to Excel</h2>
     <p class="hint">Downloads a snapshot of what's currently loaded — Asset Register, Test Equipment, Engineers, Job Details, Test History — as a .xlsx backup.</p>
@@ -859,7 +919,7 @@ function renderIO(){
   </div>
   <div class="panel">
     <h2>Bulk import from Excel</h2>
-    <p class="hint">Upload a workbook in the same format to bulk-load records into local storage on this device. Choose merge to add/update, or replace to overwrite everything currently here.</p>
+    <p class="hint">Upload a workbook in the same format to bulk-load records. This writes straight back to your connected Sheet — choose merge to add/update, or replace to overwrite everything currently there.</p>
     <input type="file" id="io-file" accept=".xlsx,.xls">
     <div class="btn-row">
       <button class="btn btn-secondary" id="btn-import-merge">Merge into sheet</button>
@@ -964,14 +1024,23 @@ function mergeByKey(target, incoming, key){
    ========================================================================= */
 function renderSettings(){
   const s = DB.settings;
-  const statusBadge = storageStatus==='ok'
-    ? '<span class="badge badge-pass">Storage OK</span>'
-    : '<span class="badge badge-fail">Storage error</span>';
+  const statusBadge = {
+    unconfigured: '<span class="badge badge-muted">Not connected</span>',
+    connecting: '<span class="badge badge-warn">Connecting…</span>',
+    ok: '<span class="badge badge-pass">Connected</span>',
+    error: '<span class="badge badge-fail">Connection error</span>',
+  }[connStatus];
   return `
   <div class="panel">
-    <div class="section-title"><h2>Offline storage</h2>${statusBadge}</div>
-    <p class="hint">Everything you enter here — asset register, equipment, engineers, test history — is saved locally in this browser on this device only. There's no server and no internet connection required after the app first loads. Nothing is shared between devices automatically.</p>
-    <p class="hint">Because it's local-only, <b>the Excel backup in Import / Export is your only copy outside this device.</b> Export it regularly, and if you ever move to a new phone or tablet, export here and import there.</p>
+    <div class="section-title"><h2>Google Sheet connection</h2>${statusBadge}</div>
+    <p class="hint">Paste in the Web app URL from the Apps Script deployment bound to your spreadsheet (Extensions &gt; Apps Script &gt; Deploy &gt; New deployment &gt; Web app). This is what makes every read and save in this app land straight in your Sheet.</p>
+    <div class="field"><label>Web app URL</label><input id="conn-url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(CONN.url)}"></div>
+    <div class="field"><label>API key (optional — only if you set one in Script Properties)</label><input id="conn-key" value="${esc(CONN.key)}"></div>
+    ${connStatus==='error'? `<div class="hint" style="color:var(--red);margin:-4px 0 12px;">${esc(connError)}</div>` : ''}
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-conn-save">Save &amp; connect</button>
+      <button class="btn btn-ghost" id="btn-conn-sync">Sync now</button>
+    </div>
   </div>
   <div class="assumptions"><b>How results are scored.</b> These thresholds follow common UK PAT-testing guidance (IET Code of Practice) as sensible defaults — check them against your own procedures and adjust if needed.</div>
   <div class="panel">
@@ -992,11 +1061,11 @@ function renderSettings(){
   </div>
   <div class="panel">
     <h2>About this app</h2>
-    <p class="hint" style="margin-bottom:8px;">Offline Edition — runs entirely in the browser on your phone, tablet, or laptop, works on Android (Chrome) and iPad (Safari), and needs no internet connection once it's loaded. Install it to your home screen for the full app-like experience. Use the camera to read QR codes and most common 1D barcodes.</p>
+    <p class="hint" style="margin-bottom:8px;">Runs entirely in the browser on your phone, tablet, or laptop — works on Android (Chrome) and iPad (Safari) without installing anything. Data (asset register, equipment, engineers, test history) is <b>shared</b>: everyone who opens this app sees and adds to the same records, so your team stays in sync. Use the camera to read QR codes and most common 1D barcodes.</p>
   </div>
   <div class="panel">
     <h2>Danger zone</h2>
-    <p class="hint">Wipes every record stored on this device. Export a backup first if you want to keep it.</p>
+    <p class="hint">Wipes every record from this app on every device. Export first if you want a backup.</p>
     <button class="btn btn-danger" id="btn-clear-all">Clear all data</button>
   </div>`;
 }
@@ -1150,6 +1219,19 @@ function bindHandlers(){
   const btnReplace = document.getElementById('btn-import-replace');
   if(btnReplace) btnReplace.onclick = ()=>{ if(confirm('This replaces ALL current data with the file contents. Continue?')) importFile('replace'); };
 
+  // -- Settings: connection --
+  const connSave = document.getElementById('btn-conn-save');
+  if(connSave) connSave.onclick = async ()=>{
+    const url = document.getElementById('conn-url').value.trim();
+    const key = document.getElementById('conn-key').value.trim();
+    if(!url){ toast('Enter the Web app URL'); return; }
+    CONN = { url, key };
+    await configSet(CONN);
+    await testConnection();
+  };
+  const connSync = document.getElementById('btn-conn-sync');
+  if(connSync) connSync.onclick = testConnection;
+
   // -- Settings --
   const saveSettings = document.getElementById('btn-save-settings');
   if(saveSettings) saveSettings.onclick = async ()=>{
@@ -1201,11 +1283,20 @@ async function commitResult(){
    ========================================================================= */
 (async function boot(){
   document.getElementById('view').innerHTML = `<div class="empty-state"><div class="big-emoji">⏳</div>Loading register…</div>`;
+  const saved = await configGet();
+  if(saved && saved.url) CONN = saved;
+  if(!CONN.url){
+    activeTab = 'settings';
+    renderHeader();
+    document.getElementById('view').innerHTML = `<div class="panel">
+      <h2>Connect your Google Sheet</h2>
+      <p class="hint">This app is a front end for a specific spreadsheet. Deploy the companion Apps Script (Code.gs) as a Web app from that Sheet, then paste its URL in below.</p>
+    </div>` + renderSettings();
+    bindHandlers();
+    return;
+  }
   await loadAll();
   renderAll();
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('./service-worker.js').catch(e=>console.warn('Service worker registration failed', e));
-  }
 })();
 </script>
 </body>
