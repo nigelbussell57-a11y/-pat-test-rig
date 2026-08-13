@@ -1016,16 +1016,16 @@ function renderSettings(){
   <div class="panel">
     <h2>Pass / fail thresholds</h2>
     <div class="row2">
-      <div class="field"><label>Max earth bond (Ω)</label><input type="number" step="0.01" id="s-earth" value="${s.earthBondMax}"></div>
-      <div class="field"><label>Min insulation (MΩ)</label><input type="number" step="0.01" id="s-insul" value="${s.insulationMin}"></div>
+      <div class="field"><label>Max earth bond (Ω)</label><input type="number" step="0.01" id="s-earth" value="${esc(s.earthBondMax)}"></div>
+      <div class="field"><label>Min insulation (MΩ)</label><input type="number" step="0.01" id="s-insul" value="${esc(s.insulationMin)}"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Max leakage, Class I (mA)</label><input type="number" step="0.01" id="s-leak1" value="${s.leakageMaxClassI}"></div>
-      <div class="field"><label>Max leakage, Class II (mA)</label><input type="number" step="0.01" id="s-leak2" value="${s.leakageMaxClassII}"></div>
+      <div class="field"><label>Max leakage, Class I (mA)</label><input type="number" step="0.01" id="s-leak1" value="${esc(s.leakageMaxClassI)}"></div>
+      <div class="field"><label>Max leakage, Class II (mA)</label><input type="number" step="0.01" id="s-leak2" value="${esc(s.leakageMaxClassII)}"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Max microwave leakage (mW/cm²)</label><input type="number" step="0.01" id="s-mwleak" value="${s.microwaveLeakageMax}"></div>
-      <div class="field"><label>Retest interval (months)</label><input type="number" id="s-retest" value="${s.retestMonths}"></div>
+      <div class="field"><label>Max microwave leakage (mW/cm²)</label><input type="number" step="0.01" id="s-mwleak" value="${esc(s.microwaveLeakageMax)}"></div>
+      <div class="field"><label>Retest interval (months)</label><input type="number" id="s-retest" value="${esc(s.retestMonths)}"></div>
     </div>
     <button class="btn btn-primary" id="btn-save-settings">Save thresholds</button>
   </div>
