@@ -580,7 +580,7 @@ function renderReadingsStep(){
   <div class="panel">
     <h2>Electrical readings</h2>
     <div class="row2">
-      <div class="field"><label>Earth bond (Ω)</label><input type="number" step="0.01" id="f-earth" value="${esc(r.earthBond)}"></div>
+      <div class="field"><label>Earth bond (Ω)</label><input type="number" step="0.01" id="f-earth" value="${a.class==='II'?'':esc(r.earthBond)}" ${a.class==='II'?'disabled placeholder="N/A — Class II has no earth"':''}></div>
       <div class="field"><label>Insulation (MΩ)</label><input type="number" step="0.01" id="f-insul" value="${esc(r.insulation)}"></div>
     </div>
     <div class="row2">
@@ -632,12 +632,16 @@ function frontEndCheck(){
   const items = [
     {label:'Visual inspection recorded', ok: r.visual==='Pass'||r.visual==='Fail'},
     {label:'Polarity recorded', ok: r.polarity==='Pass'||r.polarity==='Fail'},
-    {label:'Earth bond reading entered', ok: r.earthBond!==''&&!isNaN(r.earthBond)},
+  ];
+  if(currentAsset.class!=='II'){
+    items.push({label:'Earth bond reading entered', ok: r.earthBond!==''&&!isNaN(r.earthBond)});
+  }
+  items.push(
     {label:'Insulation reading entered', ok: r.insulation!==''&&!isNaN(r.insulation)},
     {label:'Load reading entered', ok: r.load!==''&&!isNaN(r.load)},
     {label:'Leakage reading entered', ok: r.leakage!==''&&!isNaN(r.leakage)},
     {label:'No negative readings', ok: [r.earthBond,r.insulation,r.load,r.leakage].every(v=>v===''||parseFloat(v)>=0)},
-  ];
+  );
   if(currentAsset.applianceType==='Microwave'){
     items.push({label:'Microwave leakage reading entered', ok: r.microwaveLeakage!==''&&!isNaN(r.microwaveLeakage)&&parseFloat(r.microwaveLeakage)>=0});
   }
@@ -720,7 +724,7 @@ function calculateResult(){
   if(r.visual!=='Pass') fails.push('Visual inspection: Fail');
   if(r.polarity!=='Pass') fails.push('Polarity: Fail');
   const eb = parseFloat(r.earthBond);
-  if(!isNaN(eb) && eb > s.earthBondMax) fails.push(`Earth bond ${eb}Ω exceeds limit of ${s.earthBondMax}Ω`);
+  if(currentAsset.class!=='II' && !isNaN(eb) && eb > s.earthBondMax) fails.push(`Earth bond ${eb}Ω exceeds limit of ${s.earthBondMax}Ω`);
   const ins = parseFloat(r.insulation);
   if(!isNaN(ins) && ins < s.insulationMin) fails.push(`Insulation ${ins}MΩ is below minimum of ${s.insulationMin}MΩ`);
   const leakLimit = currentAsset.class==='II' ? s.leakageMaxClassII : s.leakageMaxClassI;
@@ -1081,6 +1085,19 @@ function bindHandlers(){
 
   const readingsBack = document.getElementById('btn-readings-back');
   if(readingsBack) readingsBack.onclick = ()=>{ wizardStep='scan'; renderAll(); };
+  const classSelect = document.getElementById('f-class');
+  if(classSelect) classSelect.onchange = ()=>{
+    const earthInput = document.getElementById('f-earth');
+    if(!earthInput) return;
+    if(classSelect.value==='II'){
+      earthInput.disabled = true;
+      earthInput.value = '';
+      earthInput.placeholder = 'N/A — Class II has no earth';
+    }else{
+      earthInput.disabled = false;
+      earthInput.placeholder = '';
+    }
+  };
   const readingsNext = document.getElementById('btn-readings-next');
   if(readingsNext) readingsNext.onclick = ()=>{
     currentAsset.description = document.getElementById('f-desc').value.trim();
